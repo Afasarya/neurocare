@@ -33,7 +33,7 @@ describe("screening gap fixtures", () => {
     expect(gap.source.version).toBeTruthy();
   });
 
-  it("keeps action-plan creation disabled until F08 mapping exists", () => {
+  it("links the deduplicated action source after F08 mapping exists", () => {
     const fixture = createScreeningGapFixture("unknown-bp", requestId, now);
     if (fixture.data.status !== "ok") throw new Error("Expected ok fixture");
     const action = fixture.data.gaps[0].nextActions.find(
@@ -41,8 +41,8 @@ describe("screening gap fixtures", () => {
     );
     expect(action).toMatchObject({
       id: "add-bp-check-to-action-plan",
-      enabled: false,
-      href: null,
+      enabled: true,
+      href: "/app/action-plan",
     });
   });
 

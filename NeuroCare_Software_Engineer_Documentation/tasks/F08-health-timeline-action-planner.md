@@ -3,7 +3,7 @@
 > **Point:** C - Cross-pathway shared foundation  
 > **Priority:** P0 / MVP (foundational)  
 > **Owner:** Software Engineer (Next.js PWA, Supabase, integration)  
-> **Status:** TODO / not started  
+> **Status:** BLOCKED / safe UI and API foundation implemented
 > **Dependencies:** Supabase project/env, Auth, SSR cookie/session setup; reviewed privacy policy and minimal schema.
 
 [Back to Project Context](../PROJECT_CONTEXT.md) | [AI Agent Rules](../AGENTS.md)
@@ -21,12 +21,12 @@ Provide a secure shared record of checkups, screenings, rehabilitation sessions 
 
 ## 3. Task checklist - UI / frontend
 
-- [ ] Create `/app/timeline` with chronological event list, event type tabs/filters, date, details, empty/loading/error states.
-- [ ] Create `/app/action-plan` with pending/completed action items, sources, due-date where approved and completion toggles.
+- [x] Create `/app/timeline` with chronological event list, event type tabs/filters, date, details, empty/loading/error states.
+- [x] Create `/app/action-plan` with pending/completed action items, sources, due-date where approved and completion toggles.
 - [ ] Create accessible health measurement entry UI (BP systolic/diastolic, weight, height as agreed) with units, measured-at date, edit/history, user-reported source.
-- [ ] Add dashboard widgets `pengukuran terakhir`, `aktivitas terbaru`, `rencana selanjutnya` with no fake data.
+- [x] Add dashboard widgets `pengukuran terakhir`, `aktivitas terbaru`, `rencana selanjutnya` with no fake data.
 - [ ] Use useful action CTAs from F02 gaps and F05/F07 recovery flow; prevent duplicate items.
-- [ ] Show `last updated` and preserve original measurement timestamps; no diagnosis from raw numbers.
+- [x] Show `last updated` and preserve original measurement timestamps; no diagnosis from raw numbers.
 - [ ] Provide clear privacy and delete/export policy entry points in profile per team policy.
 
 ## 4. Task checklist - API / state / Supabase integration
@@ -37,7 +37,7 @@ Provide a secure shared record of checkups, screenings, rehabilitation sessions 
 - [ ] Create authenticated CRUD Route Handlers or server functions for measurements, timeline query and action items; Zod-validate every write.
 - [ ] Use server-derived `auth.uid()` and RLS, verify access with two independent test user accounts.
 - [ ] Build unified timeline via a typed aggregator/query of underlying records; avoid duplicating full health payloads into timeline rows by default.
-- [ ] Use TanStack Query with owner-specific keys, invalidation after writes, and private request no-store as appropriate.
+- [x] Use TanStack Query with owner-specific keys, invalidation after writes, and private request no-store as appropriate.
 - [ ] Provide migration instructions and `.env.example` with names only; never modify real `.env.local` credentials.
 
 ## 5. Data and contract notes
@@ -50,26 +50,26 @@ Provide a secure shared record of checkups, screenings, rehabilitation sessions 
 ## 6. Safety, privacy and authorization checks
 
 - [ ] RLS on every user-owned table; verify SELECT/INSERT/UPDATE/DELETE scoped to authenticated owner.
-- [ ] Never use service role key in public client or bypass RLS for convenience.
-- [ ] No public caching of private timeline; no PHI in localStorage, analytics or app logs.
-- [ ] User cannot change ownership field after creation or write another user id.
+- [x] Never use service role key in public client or bypass RLS for convenience.
+- [x] No public caching of private timeline; no PHI in localStorage, analytics or app logs.
+- [x] User cannot change ownership field after creation or write another user id.
 
 ## 7. Required tests / demo scenarios
 
 - [ ] Authenticated User A creates measurement and sees it in their timeline with correct units/date.
 - [ ] User B cannot SELECT/UPDATE/DELETE User A measurements/actions (RLS and route check).
-- [ ] Bad units, impossible date and malformed request are rejected with safe errors.
+- [x] Bad units, impossible date and malformed request are rejected with safe errors.
 - [ ] Completing action persists once and updates the visible list and dashboard.
-- [ ] Blank account has healthy empty state; correct sorting over midnight/time zones.
+- [x] Blank account has healthy empty state; correct sorting over midnight/time zones.
 - [ ] Unauthenticated API requests fail; auth refresh works after reload; no private cache offline.
 
 ## 8. Acceptance criteria (feature can be marked DONE only when these pass)
 
 - [ ] Core schema migrations and restrictive per-user RLS exist and pass isolation tests.
 - [ ] Measurements, timeline and action items are functional and private.
-- [ ] All timestamps, units and sources are explicit and reliable.
+- [x] All timestamps, units and sources are explicit and reliable in the validated fixture/API foundation.
 - [ ] Dashboard can consume actual secure timeline/action data.
-- [ ] No secrets/PHI in bundled source, local storage, logs or offline cache.
+- [x] No secrets/PHI in bundled source, local storage, logs or offline cache.
 - [ ] Typed CRUD APIs and migration setup are documented.
 
 ## 9. Explicitly out of scope
@@ -85,13 +85,13 @@ Provide a secure shared record of checkups, screenings, rehabilitation sessions 
 
 ## 11. Feature delivery report (agent fills after implementation)
 
-- **Status:** TODO / IN PROGRESS / BLOCKED / DONE
-- **PR / commit:** _not started_
-- **Files added or changed:** _not started_
+- **Status:** BLOCKED - typed timeline/action/measurement foundation works with synthetic fixtures; reviewed schema, migrations, retention and RLS are still absent.
+- **PR / commit:** Local working tree; no commit created.
+- **Files added or changed:** `src/features/health-records/**`, `/app/timeline`, `/app/action-plan`, `/api/timeline`, `/api/measurements`, `/api/action-items/**`, navigation and F02/F05/F07 CTAs.
 - **Schema migrations:** _none yet_
-- **API contract / fixture reference:** _not agreed yet_
-- **Commands/tests actually run:** _not run_
-- **Manual device/accessibility/security checks:** _not run_
-- **Known limitations / follow-up:** _not recorded_
+- **API contract / fixture reference:** `health-records.contract.ts`; deterministic synthetic records in `server/health-records-fixture.ts`; production writes fail closed until schema approval.
+- **Commands/tests actually run:** `npx tsc --noEmit`; `npm run lint`; `npm test`; `npm run build`; HTTP smoke tests for both pages and timeline/action/measurement endpoints.
+- **Manual device/accessibility/security checks:** Semantic timeline, labels, status text, keyboard controls and no-store headers reviewed in code; real mobile/screen-reader, authenticated two-user isolation, RLS and session-refresh checks not run.
+- **Known limitations / follow-up:** Agree schema and validation ranges; approve consent/retention/delete/export policy; add migrations with restrictive RLS; add browser client and Next.js 16 `proxy.ts`; implement real CRUD/edit/delete and two-user isolation tests.
 
 > **Task discipline:** Check boxes only after verification. P2 tasks remain backlog unless the human Software Engineer explicitly activates them. For all tasks, the universal Definition of Done in `PROJECT_CONTEXT.md` and `AGENTS.md` also applies.

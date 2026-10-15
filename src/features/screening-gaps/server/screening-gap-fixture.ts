@@ -77,8 +77,8 @@ export function createScreeningGapFixture(
         id: "add-bp-check-to-action-plan",
         kind: "add_action_plan",
         label: "Tambah ke Rencana",
-        href: null,
-        enabled: false,
+        href: "/app/action-plan",
+        enabled: true,
       },
     ],
   };

@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Accessibility, Activity, ChartNoAxesCombined, ClipboardCheck, HeartPulse, History, House, ListChecks, Sparkles } from "lucide-react";
+import { Accessibility, Activity, CalendarRange, ChartNoAxesCombined, ClipboardCheck, HeartPulse, History, House, ListChecks, ListTodo, Sparkles } from "lucide-react";
 import { AppQueryProvider } from "@/components/providers/app-query-provider";
 
 export default function AppLayout({ children }: LayoutProps<"/app">) {
@@ -30,6 +30,8 @@ export default function AppLayout({ children }: LayoutProps<"/app">) {
             <Link href="/app/recovery" className="focus-ring flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-muted-foreground hover:bg-muted"><Accessibility className="size-4" />Check-in pemulihan</Link>
             <Link href="/app/recovery/activity" className="focus-ring flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-muted-foreground hover:bg-muted"><Activity className="size-4" />Pelacak gerak</Link>
             <Link href="/app/recovery/progress" className="focus-ring flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-muted-foreground hover:bg-muted"><ChartNoAxesCombined className="size-4" />Progress pemulihan</Link>
+            <Link href="/app/timeline" className="focus-ring flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-muted-foreground hover:bg-muted"><CalendarRange className="size-4" />Timeline kesehatan</Link>
+            <Link href="/app/action-plan" className="focus-ring flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-muted-foreground hover:bg-muted"><ListTodo className="size-4" />Rencana tindakan</Link>
           </nav>
         </aside>
         <div className="min-w-0">{children}</div>
@@ -44,6 +46,8 @@ export default function AppLayout({ children }: LayoutProps<"/app">) {
         <Link href="/app/recovery" className="focus-ring grid min-w-14 place-items-center gap-1 rounded-full px-1 py-2 text-[0.6rem] text-muted-foreground"><Accessibility className="size-4" />Recovery</Link>
         <Link href="/app/recovery/activity" className="focus-ring grid min-w-14 place-items-center gap-1 rounded-full px-1 py-2 text-[0.6rem] text-muted-foreground"><Activity className="size-4" />Gerak</Link>
         <Link href="/app/recovery/progress" className="focus-ring grid min-w-14 place-items-center gap-1 rounded-full px-1 py-2 text-[0.6rem] text-muted-foreground"><ChartNoAxesCombined className="size-4" />Progress</Link>
+        <Link href="/app/timeline" className="focus-ring grid min-w-14 place-items-center gap-1 rounded-full px-1 py-2 text-[0.6rem] text-muted-foreground"><CalendarRange className="size-4" />Timeline</Link>
+        <Link href="/app/action-plan" className="focus-ring grid min-w-14 place-items-center gap-1 rounded-full px-1 py-2 text-[0.6rem] text-muted-foreground"><ListTodo className="size-4" />Rencana</Link>
       </nav>
       </div>
     </AppQueryProvider>
