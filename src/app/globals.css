@@ -129,6 +129,25 @@ body {
     border-color: var(--ring);
     box-shadow: 0 0 0 3px rgb(99 128 108 / 0.22);
   }
+
+  .primary-action {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    background: var(--neuro-slate);
+    padding-inline: 1rem;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 600;
+    outline: none;
+  }
+
+  .primary-action:focus-visible {
+    box-shadow: 0 0 0 3px rgb(99 128 108 / 0.35);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

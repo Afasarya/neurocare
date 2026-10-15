@@ -3,7 +3,7 @@
 > **Point:** A - NeuroPrevent  
 > **Priority:** P1 / Stretch  
 > **Owner:** Software Engineer (Next.js PWA, Supabase, integration)  
-> **Status:** TODO / not started  
+> **Status:** IN PROGRESS / safe camera shell implemented; capture contract blocked
 > **Dependencies:** Camera-capable HTTPS device; consent; Supabase auth; AI Engineer PPG processing/quality contract; F08 session history.
 
 [Back to Project Context](../PROJECT_CONTEXT.md) | [AI Agent Rules](../AGENTS.md)
@@ -20,21 +20,21 @@ Capture a short rear-camera optical pulse signal, request BPM analysis, and show
 
 ## 3. Task checklist - UI / frontend
 
-- [ ] Create `/app/pulse-monitor` with disclaimer, device requirements, instructions, explicit camera consent, recording progress and cancel/retry.
-- [ ] Use `navigator.mediaDevices.getUserMedia` only after user interaction; request rear camera `facingMode: environment` where supported.
-- [ ] Check torch capability before requesting flash; show fallback when unavailable (never assume flash works on all phones).
-- [ ] Build states `unsupported`, `permission_denied`, `ready`, `capturing`, `analyzing`, `poor_signal`, `success`, `canceled`, `error`.
+- [x] Create `/app/pulse-monitor` with disclaimer, device requirements, instructions, explicit camera consent, recording progress and cancel/retry.
+- [x] Use `navigator.mediaDevices.getUserMedia` only after user interaction; request rear camera `facingMode: environment` where supported.
+- [x] Check torch capability before requesting flash; show fallback when unavailable (never assume flash works on all phones).
+- [x] Build states `unsupported`, `permission_denied`, `ready`, `capturing`, `analyzing`, `poor_signal`, `success`, `canceled`, `error`.
 - [ ] Display BPM, collection timestamp, signal-quality status, measurement limitations; avoid mock numeric placeholders in actual result view.
-- [ ] Provide visible cancel button and accessible non-camera exit route; explain that lighting, motion and camera quality affect result.
+- [x] Provide visible cancel button and accessible non-camera exit route; explain that lighting, motion and camera quality affect result.
 
 ## 4. Task checklist - API / state / Supabase integration
 
 - [ ] Implement browser-only capture component; use video/canvas safely, sample approved red-channel intensity + accurate timestamps to a bounded in-memory buffer; preserve capture cadence metadata.
 - [ ] Agree sample rate, time window, payload size, timestamps, artifact handling and signal-quality contract with AI Engineer **before** sending data.
 - [ ] Call authenticated `POST /api/ppg/analyze` through Next.js, with server-side validation, request size guard and timeout.
-- [ ] Validate response: only `quality=acceptable` and actual valid BPM measurement may reach success state.
+- [x] Validate response: only `quality=acceptable` and actual valid BPM measurement may reach success state.
 - [ ] Store a minimal PPG session with BPM, quality/source/time only if user explicitly saves or agreed auto-save consent exists.
-- [ ] Use browser MediaStreamTrack stop on success, error, cancel, navigation, visibility loss and unmount; clear transient samples promptly.
+- [x] Use browser MediaStreamTrack stop on success, error, cancel, navigation, visibility loss and unmount; clear transient samples promptly.
 - [ ] Add `AbortController` and ignore late responses after cancellation.
 
 ## 5. Data and contract notes
@@ -45,16 +45,16 @@ Capture a short rear-camera optical pulse signal, request BPM analysis, and show
 
 ## 6. Safety, privacy and authorization checks
 
-- [ ] Camera activation always explicit and visually identifiable.
-- [ ] Never call it pressure/blood oxygen/AF/stroke detection; F03 output cannot enter F01 WHO risk calculation.
-- [ ] HTTPS (or localhost) required, limited memory buffer, tracks stopped and cross-user session data inaccessible.
+- [x] Camera activation always explicit and visually identifiable.
+- [x] Never call it pressure/blood oxygen/AF/stroke detection; F03 output cannot enter F01 WHO risk calculation.
+- [x] HTTPS (or localhost) required, limited memory buffer, tracks stopped and cross-user session data inaccessible.
 
 ## 7. Required tests / demo scenarios
 
 - [ ] Actual phone: camera available + torch supported; capture -> validated BPM against a reference pulse device, labeled as demo/unvalidated.
 - [ ] Actual phone without torch capability and device without rear camera.
 - [ ] Permission denied and interruption mid-capture cleanly stop tracks.
-- [ ] Noisy/short/poor quality signal shows retry, **no BPM**.
+- [x] Noisy/short/poor quality signal shows retry, **no BPM**.
 - [ ] API timeout, malformed BPM, canceled request, unmount and route change release camera.
 - [ ] Session save/query is user-scoped; no raw frames written to storage/logs.
 
@@ -79,13 +79,13 @@ Capture a short rear-camera optical pulse signal, request BPM analysis, and show
 
 ## 11. Feature delivery report (agent fills after implementation)
 
-- **Status:** TODO / IN PROGRESS / BLOCKED / DONE
-- **PR / commit:** _not started_
-- **Files added or changed:** _not started_
+- **Status:** IN PROGRESS — camera-consent shell and guarded API are implemented; real capture/analysis remains blocked by the unapproved AI contract and physical-device validation.
+- **PR / commit:** Working tree implementation; no commit created by this agent.
+- **Files added or changed:** `src/app/app/pulse-monitor/page.tsx`, `src/app/api/ppg/analyze/route.ts`, `src/features/ppg/**`, and app navigation in `src/app/app/layout.tsx`.
 - **Schema migrations:** _none yet_
-- **API contract / fixture reference:** _not agreed yet_
-- **Commands/tests actually run:** _not run_
-- **Manual device/accessibility/security checks:** _not run_
-- **Known limitations / follow-up:** _not recorded_
+- **API contract / fixture reference:** Strict proposed Zod boundary in `src/features/ppg/ppg.contract.ts`; development fixtures expose only `poor_signal` and `unavailable`, never a fabricated BPM. Capture profile remains explicitly unapproved.
+- **Commands/tests actually run:** `npx tsc --noEmit`; `npm run lint`; `npm test` (25 passed); `npm run build`; HTTP smoke check (`/app/pulse-monitor` 200, poor-signal fixture 200 without BPM, malformed payload 400).
+- **Manual device/accessibility/security checks:** Browser HTTP smoke check completed. Actual phone, rear-camera, torch, permissions, interruption and assistive-technology checks were not run in this environment.
+- **Known limitations / follow-up:** The measurement button intentionally remains disabled. Agree cadence, duration, artifact/quality rules and validation vectors with the AI Engineer; then add bounded in-memory sampling, abortable client request, user-consented minimal session persistence, and physical-device comparison testing.
 
 > **Task discipline:** Check boxes only after verification. P2 tasks remain backlog unless the human Software Engineer explicitly activates them. For all tasks, the universal Definition of Done in `PROJECT_CONTEXT.md` and `AGENTS.md` also applies.
