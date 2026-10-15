@@ -43,7 +43,7 @@ const gapQueryKeys = {
 
 export function ScreeningGapsView() {
   const [scenario, setScenario] = useState<GapDemoScenario>("unknown-bp");
-  const isDevelopment = process.env.NODE_ENV !== "production";
+  const isDemo = process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true";
   const query = useQuery({
     queryKey: gapQueryKeys.currentUser(scenario),
     queryFn: ({ signal }) => fetchScreeningGaps(scenario, signal),
@@ -54,14 +54,14 @@ export function ScreeningGapsView() {
       <Link href="/app/screening" className="focus-ring inline-flex items-center gap-2 rounded-full text-sm font-medium text-muted-foreground hover:text-neuro-slate"><ArrowLeft className="size-4" />Kembali ke skrining</Link>
       <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-neuro-blue px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F02 • NeuroPrevent</span>{isDevelopment ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}</div>
+          <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-neuro-blue px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F02 • NeuroPrevent</span>{isDemo ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}</div>
           <h1 className="mt-4 text-3xl font-medium tracking-[-0.045em] text-neuro-slate sm:text-4xl">Gap pemeriksaan</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Lihat informasi yang belum tersedia, fakta pendukungnya, dan langkah yang dapat dilakukan tanpa menyimpulkan hasil medis.</p>
         </div>
         <button type="button" onClick={() => query.refetch()} disabled={query.isFetching} className="focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-neuro-slate/10 bg-white px-4 text-sm font-semibold text-neuro-slate disabled:opacity-60"><RefreshCw className={`size-4 ${query.isFetching ? "animate-spin" : ""}`} />Perbarui</button>
       </div>
 
-      {isDevelopment ? (
+      {isDemo ? (
         <div className="mt-6 rounded-3xl border border-[#ead39f] bg-[#fff9ec] p-4 sm:p-5">
           <p className="text-xs font-semibold uppercase tracking-wider text-[#79520f]">Skenario demonstrasi</p>
           <div className="mt-3 flex flex-wrap gap-2">{scenarioLabels.map(([value, label]) => <button key={value} type="button" onClick={() => setScenario(value)} aria-pressed={scenario === value} className="focus-ring rounded-full border border-[#79520f]/15 bg-white px-3 py-2 text-xs font-medium text-[#79520f] aria-pressed:bg-[#79520f] aria-pressed:text-white">{label}</button>)}</div>
@@ -83,7 +83,7 @@ async function fetchScreeningGaps(
 ): Promise<ScreeningGapsResponse> {
   const response = await fetch(`/api/screening/gaps?scenario=${scenario}`, {
     headers:
-      process.env.NODE_ENV !== "production"
+      process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true"
         ? { "X-NeuroCare-Demo": "screening-gap-fixture-v1" }
         : {},
     cache: "no-store",
@@ -133,9 +133,86 @@ function GapCard({ gap }: { gap: ScreeningGap }) {
       <h2 className="mt-6 text-2xl font-medium tracking-[-0.035em] text-neuro-slate">{gap.title}</h2>
       <div className="mt-5 rounded-2xl bg-neuro-cream p-4"><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fakta yang tercatat</p><p className="mt-2 text-sm font-medium text-neuro-slate">{gap.supportingFact.label}</p><p className="mt-1 text-xs text-muted-foreground">{gap.supportingFact.recordedAt ? formatDate(gap.supportingFact.recordedAt) : "Belum ada tanggal pemeriksaan"}</p></div>
       <details className="group mt-4 border-y border-black/5 py-1"><summary className="focus-ring flex cursor-pointer list-none items-center justify-between rounded-xl py-4 text-sm font-semibold text-neuro-slate">Kenapa disarankan?<ChevronDown className="size-4 transition group-open:rotate-180" /></summary><p className="pb-4 text-sm leading-6 text-muted-foreground">{gap.reason}</p></details>
-      <div className="mt-5 flex flex-wrap gap-2">{gap.nextActions.map((action) => action.enabled && action.href ? <Link key={action.id} href={action.href} className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-full bg-neuro-slate px-4 text-sm font-semibold text-white">{action.kind === "view_history" ? <History className="size-4" /> : <ClipboardList className="size-4" />}{action.label}</Link> : <button key={action.id} type="button" disabled className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-full border border-black/10 px-4 text-sm font-semibold text-muted-foreground opacity-60" title="F08 Action Planner dan deduplikasi belum tersedia"><Plus className="size-4" />{action.label}</button>)}</div>
+      <div className="mt-5 flex flex-wrap gap-2">
+        {gap.nextActions.map((action) =>
+          action.enabled && action.href ? (
+            <Link
+              key={action.id}
+              href={action.href}
+              className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-full bg-neuro-slate px-4 text-sm font-semibold text-white"
+            >
+              {action.kind === "view_history" ? <History className="size-4" /> : <ClipboardList className="size-4" />}
+              {action.label}
+            </Link>
+          ) : (
+            <AddToPlanButton key={action.id} gap={gap} action={action} />
+          )
+        )}
+      </div>
       <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-black/5 pt-4 text-xs text-muted-foreground"><span>Sumber: {gap.source.label}</span><span>Versi: {gap.source.version}</span>{gap.stale ? <span className="font-semibold text-[#79520f]">Perlu dihitung ulang</span> : null}</div>
     </article>
+  );
+}
+
+function AddToPlanButton({ gap, action }: { gap: ScreeningGap; action: ScreeningGap["nextActions"][number] }) {
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  async function handleAdd() {
+    setStatus("saving");
+    try {
+      const res = await fetch("/api/action-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: action.label,
+          description: `${gap.title}: ${gap.reason}`,
+          pathway: "neuroprevent",
+          dedupeKey: `gap:${gap.id}:${action.id}`,
+          sourceLabel: "Gap Skrining",
+          sourceReferenceId: gap.id,
+        }),
+      });
+      if (res.ok) {
+        setStatus("saved");
+      } else {
+        setStatus("error");
+      }
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  if (status === "saved") {
+    return (
+      <Link
+        href="/app/action-plan"
+        className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-full bg-neuro-green px-4 text-xs font-semibold text-neuro-slate"
+      >
+        <Check className="size-3.5" />
+        Tersimpan di Rencana (Buka)
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleAdd}
+      disabled={status === "saving"}
+      className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-full border border-neuro-slate/20 bg-white px-4 text-sm font-semibold text-neuro-slate hover:bg-neuro-cream disabled:opacity-50"
+    >
+      {status === "saving" ? (
+        <>
+          <LoaderCircle className="size-4 animate-spin" />
+          Menyimpan…
+        </>
+      ) : (
+        <>
+          <Plus className="size-4" />
+          {action.label}
+        </>
+      )}
+    </button>
   );
 }
 

@@ -43,7 +43,7 @@ export function HealthInsightView() {
   const [consent, setConsent] = useState(false);
   const [cooldown, setCooldown] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const isDevelopment = process.env.NODE_ENV !== "production";
+  const isDemo = process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true";
   const emergency = scenario === "emergency";
 
   const mutation = useMutation({
@@ -55,7 +55,7 @@ export function HealthInsightView() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(isDevelopment
+          ...(isDemo
             ? { "X-NeuroCare-Insight-Demo": scenario === "unavailable" ? "unavailable" : "approved" }
             : {}),
         },
@@ -103,14 +103,14 @@ export function HealthInsightView() {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-neuro-green px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F04 · NeuroPrevent</span>
-            {isDevelopment ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}
+            {isDemo ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}
           </div>
           <h1 className="mt-4 text-3xl font-medium tracking-[-0.045em] text-neuro-slate sm:text-4xl">Insight kesehatan personal</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Penjelasan berbantuan AI hanya merangkum fakta skrining yang sudah tersedia. AI tidak menghitung ulang, mengubah, atau menggantikan hasil sumber.</p>
         </div>
       </div>
 
-      {isDevelopment ? <DemoControls scenario={scenario} onChange={chooseScenario} /> : null}
+      {isDemo ? <DemoControls scenario={scenario} onChange={chooseScenario} /> : null}
 
       {emergency ? (
         <section className="mt-6 rounded-[2rem] border border-[#e6b4b8] bg-[#fff4f4] p-6 text-[#8b2028] sm:p-8" role="alert">

@@ -117,7 +117,7 @@ export function ScreeningFlow() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(process.env.NODE_ENV !== "production"
+          ...(process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true"
             ? { "X-NeuroCare-Demo": "screening-fixture-v1" }
             : {}),
         },
@@ -177,7 +177,7 @@ export function ScreeningFlow() {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-neuro-green px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F01 • NeuroPrevent</span>
-            {process.env.NODE_ENV !== "production" ? (
+            {process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true" ? (
               <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span>
             ) : null}
           </div>

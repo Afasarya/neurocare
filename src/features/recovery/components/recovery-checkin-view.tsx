@@ -44,7 +44,7 @@ export function RecoveryCheckinView() {
   const [scenario, setScenario] = useState<DemoScenario>("baseline");
   const [createdCheckins, setCreatedCheckins] = useState<RecoveryCheckin[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const isDevelopment = process.env.NODE_ENV !== "production";
+  const isDemo = process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true";
   const form = useForm<RecoveryFormValues>({ resolver: zodResolver(recoveryFormSchema), defaultValues, mode: "onTouched" });
   const values = useWatch({ control: form.control });
 
@@ -57,7 +57,7 @@ export function RecoveryCheckinView() {
 
   const createMutation = useMutation({
     mutationFn: async (input: RecoveryCheckinCreate) => {
-      if (isDevelopment && scenario === "network-error") throw new Error("Simulated network loss");
+      if (isDemo && scenario === "network-error") throw new Error("Simulated network loss");
       return createRecoveryCheckin(input, checkins.length === 0, scenario);
     },
     onSuccess: (response) => {
@@ -112,10 +112,10 @@ export function RecoveryCheckinView() {
     <main>
       <Link href="/" className="focus-ring inline-flex items-center gap-2 rounded-full text-sm font-medium text-muted-foreground hover:text-neuro-slate"><ArrowLeft className="size-4" />Kembali ke beranda</Link>
       <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-neuro-blue px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F05 · NeuroRecovery</span>{isDevelopment ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}</div><h1 className="mt-4 text-3xl font-medium tracking-[-0.045em] text-neuro-slate sm:text-4xl">Penilaian mandiri pemulihan</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Catat pengalaman aktivitas dan kendala yang Anda rasakan. Check-in ini bukan skor klinis dan tidak menentukan apakah Anda aman untuk berlatih.</p></div>
+        <div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-neuro-blue px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F05 · NeuroRecovery</span>{isDemo ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}</div><h1 className="mt-4 text-3xl font-medium tracking-[-0.045em] text-neuro-slate sm:text-4xl">Penilaian mandiri pemulihan</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Catat pengalaman aktivitas dan kendala yang Anda rasakan. Check-in ini bukan skor klinis dan tidak menentukan apakah Anda aman untuk berlatih.</p></div>
       </div>
 
-      {isDevelopment ? <DemoControls scenario={scenario} onChange={chooseScenario} /> : null}
+      {isDemo ? <DemoControls scenario={scenario} onChange={chooseScenario} /> : null}
 
       {emergency ? <EmergencyPanel onRestart={restart} /> : (
         <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
@@ -193,9 +193,10 @@ function Question<TName extends Path<RecoveryFormValues>>({ label, register, nam
 function DemoControls({ scenario, onChange }: { scenario: DemoScenario; onChange: (value: DemoScenario) => void }) { const choices: Array<[DemoScenario, string]> = [["baseline", "Ada baseline"], ["empty", "Check-in pertama"], ["unavailable", "Riwayat gagal"], ["save-error", "Simpan gagal"], ["network-error", "Jaringan terputus"]]; return <div className="mt-6 rounded-3xl border border-[#ead39f] bg-[#fff9ec] p-4 sm:p-5"><p className="text-xs font-semibold uppercase tracking-wider text-[#79520f]">Skenario data demo (simulasi)</p><div className="mt-3 flex flex-wrap gap-2">{choices.map(([value, label]) => <button type="button" key={value} onClick={() => onChange(value)} aria-pressed={scenario === value} className="focus-ring min-h-10 rounded-full border border-[#79520f]/15 bg-white px-3 text-xs font-medium text-[#79520f] aria-pressed:bg-[#79520f] aria-pressed:text-white">{label}</button>)}</div></div>; }
 
 async function fetchRecoveryHistory(scenario: DemoScenario, signal: AbortSignal): Promise<RecoveryListResponse> {
-  if (process.env.NODE_ENV !== "production" && scenario === "network-error") throw new Error("Simulated network loss");
+  const isDemo = process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true";
+  if (isDemo && scenario === "network-error") throw new Error("Simulated network loss");
   const apiScenario = scenario === "empty" ? "empty" : scenario === "unavailable" ? "unavailable" : "baseline";
-  const response = await fetch(`/api/recovery/checkins?scenario=${apiScenario}`, { headers: process.env.NODE_ENV !== "production" ? { "X-NeuroCare-Recovery-Demo": "recovery-fixture-v1" } : {}, cache: "no-store", signal });
+  const response = await fetch(`/api/recovery/checkins?scenario=${apiScenario}`, { headers: isDemo ? { "X-NeuroCare-Recovery-Demo": "recovery-fixture-v1" } : {}, cache: "no-store", signal });
   if (!response.ok) throw new Error("Recovery history request failed");
   const payload: unknown = await response.json();
   const parsed = recoveryListResponseSchema.safeParse(payload);
@@ -204,7 +205,8 @@ async function fetchRecoveryHistory(scenario: DemoScenario, signal: AbortSignal)
 }
 
 async function createRecoveryCheckin(input: RecoveryCheckinCreate, isBaseline: boolean, scenario: DemoScenario): Promise<RecoveryCreateResponse> {
-  const response = await fetch("/api/recovery/checkins", { method: "POST", headers: { "Content-Type": "application/json", ...(process.env.NODE_ENV !== "production" ? { "X-NeuroCare-Recovery-Demo": "recovery-fixture-v1", "X-NeuroCare-Recovery-Entry": isBaseline ? "baseline" : "follow-up", ...(scenario === "save-error" ? { "X-NeuroCare-Recovery-Create": "unavailable" } : {}) } : {}) }, body: JSON.stringify(input), cache: "no-store", signal: AbortSignal.timeout(10_000) });
+  const isDemo = process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true";
+  const response = await fetch("/api/recovery/checkins", { method: "POST", headers: { "Content-Type": "application/json", ...(isDemo ? { "X-NeuroCare-Recovery-Demo": "recovery-fixture-v1", "X-NeuroCare-Recovery-Entry": isBaseline ? "baseline" : "follow-up", ...(scenario === "save-error" ? { "X-NeuroCare-Recovery-Create": "unavailable" } : {}) } : {}) }, body: JSON.stringify(input), cache: "no-store", signal: AbortSignal.timeout(10_000) });
   if (!response.ok) throw new Error("Recovery create request failed");
   const payload: unknown = await response.json();
   const parsed = recoveryCreateResponseSchema.safeParse(payload);

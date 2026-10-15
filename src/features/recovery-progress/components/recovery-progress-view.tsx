@@ -33,7 +33,7 @@ export function RecoveryProgressView() {
   const [range, setRange] = useState<ProgressRange>("90d");
   const [scenario, setScenario] = useState<DemoScenario>("multiple");
   const [emergency, setEmergency] = useState(false);
-  const isDevelopment = process.env.NODE_ENV !== "production";
+  const isDemo = process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true";
   const query = useQuery({
     queryKey: ["recovery-progress", range, scenario],
     queryFn: ({ signal }) => fetchProgress(range, scenario, signal),
@@ -46,14 +46,14 @@ export function RecoveryProgressView() {
       <Link href="/app/recovery" className="focus-ring inline-flex items-center gap-2 rounded-full text-sm font-medium text-muted-foreground hover:text-neuro-slate"><ArrowLeft className="size-4" />Kembali ke check-in</Link>
       <div className="mt-6 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-neuro-blue px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F07 · NeuroRecovery</span>{isDevelopment ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}</div>
+          <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-neuro-blue px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F07 · NeuroRecovery</span>{isDemo ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}</div>
           <h1 className="mt-4 text-3xl font-medium tracking-[-0.045em] text-neuro-slate sm:text-4xl">Perubahan catatan pemulihan</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Lihat catatan mandiri dan aktivitas yang benar-benar tersimpan. Tampilan ini bukan skor pemulihan, diagnosis, atau bukti perubahan neurologis.</p>
         </div>
         <div className="flex rounded-full border border-black/5 bg-white p-1" aria-label="Pilih rentang waktu">{(["30d", "90d", "all"] as const).map((value) => <button key={value} type="button" onClick={() => setRange(value)} aria-pressed={range === value} className={`focus-ring min-h-10 rounded-full px-4 text-xs font-semibold ${range === value ? "bg-neuro-slate text-white" : "text-muted-foreground"}`}>{value === "all" ? "Semua" : value === "30d" ? "30 hari" : "90 hari"}</button>)}</div>
       </div>
 
-      {isDevelopment ? <DemoControls value={scenario} onChange={setScenario} /> : null}
+      {isDemo ? <DemoControls value={scenario} onChange={setScenario} /> : null}
 
       <section className="mt-5 flex flex-col gap-3 rounded-3xl border border-[#e6b4b8] bg-[#fff4f4] p-4 text-[#8b2028] sm:flex-row sm:items-center sm:justify-between"><div className="flex gap-3"><ShieldAlert className="mt-0.5 size-5 shrink-0" /><div><h2 className="text-sm font-semibold">Gejala baru yang muncul mendadak selalu lebih penting daripada grafik.</h2><p className="mt-1 text-xs leading-5 opacity-80">Jangan menunggu ringkasan aplikasi bila muncul wajah menurun satu sisi, kelemahan satu sisi, atau kesulitan bicara.</p></div></div><button type="button" onClick={() => setEmergency(true)} className="focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-white px-4 text-sm font-semibold"><AlertTriangle className="size-4" />Tampilkan bantuan darurat</button></section>
 
@@ -121,8 +121,9 @@ function DemoControls({ value, onChange }: { value: DemoScenario; onChange: (val
 function EmergencyPanel({ onBack }: { onBack: () => void }) { return <main><section className="rounded-[2rem] border border-[#e6b4b8] bg-[#fff4f4] p-6 text-[#8b2028] sm:p-8" role="alert"><ShieldAlert className="size-9" /><h1 className="mt-4 text-2xl font-semibold">Abaikan grafik dan cari bantuan darurat</h1><p className="mt-3 max-w-2xl text-sm leading-6">Hubungi layanan darurat setempat atau pergi ke fasilitas kesehatan terdekat. Jangan menunggu ringkasan aplikasi.</p><div className="mt-6 flex flex-wrap gap-3"><Link href="/app/recovery" className="focus-ring inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold"><ArrowLeft className="size-4" />Keluar dari progress</Link><button type="button" onClick={onBack} className="focus-ring inline-flex min-h-12 items-center gap-2 rounded-full border border-[#e6b4b8] px-5 text-sm font-semibold">Kembali ke grafik</button></div></section></main>; }
 
 async function fetchProgress(range: ProgressRange, scenario: DemoScenario, signal: AbortSignal) {
-  if (scenario === "network-error") throw new Error("Simulated network error");
-  const response = await fetch(`/api/recovery/progress?range=${range}&scenario=${scenario}`, { headers: process.env.NODE_ENV !== "production" ? { "X-NeuroCare-Progress-Demo": "progress-fixture-v1" } : {}, cache: "no-store", signal });
+  const isDemo = process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true";
+  if (isDemo && scenario === "network-error") throw new Error("Simulated network error");
+  const response = await fetch(`/api/recovery/progress?range=${range}&scenario=${scenario}`, { headers: isDemo ? { "X-NeuroCare-Progress-Demo": "progress-fixture-v1" } : {}, cache: "no-store", signal });
   if (!response.ok) throw new Error("Recovery progress request failed");
   const payload: unknown = await response.json();
   const parsed = recoveryProgressResponseSchema.safeParse(payload);

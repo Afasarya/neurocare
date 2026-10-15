@@ -73,7 +73,7 @@ export function PulseMonitor() {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-neuro-green px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F03 · NeuroPrevent</span>
-            {process.env.NODE_ENV !== "production" ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}
+            {process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true" ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}
           </div>
           <h1 className="mt-4 text-3xl font-medium tracking-[-0.045em] text-neuro-slate sm:text-4xl">Monitor detak dengan kamera</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Prototipe ini menyiapkan kamera belakang untuk estimasi detak jantung. Hasil bukan diagnosis atau pengganti pemeriksaan tenaga kesehatan.</p>
@@ -136,7 +136,7 @@ export function PulseMonitor() {
 
             {cameraState === "ready" ? <div className="mt-5 rounded-2xl bg-neuro-blue p-4"><p className="text-sm font-semibold text-neuro-slate">Kamera siap—pengambilan sampel belum diaktifkan.</p><p className="mt-1 text-xs leading-5 text-neuro-slate/65">Sample rate, durasi, dan quality gate masih menunggu persetujuan AI Engineer. Tidak ada sampel yang dikirim ke API.</p>{torchAvailable ? <button type="button" onClick={() => void setTorch(!torchEnabled)} className="focus-ring mt-3 inline-flex min-h-10 items-center gap-2 rounded-full bg-white px-4 text-xs font-semibold text-neuro-slate"><Flashlight className="size-4" />{torchEnabled ? "Matikan lampu" : "Nyalakan lampu"}</button> : <p className="mt-3 text-xs text-neuro-slate/65">Lampu kamera tidak tersedia; gunakan cahaya ruangan yang merata.</p>}</div> : null}
 
-            {process.env.NODE_ENV !== "production" ? <DemoControls onSelect={selectDemoState} /> : null}
+            {process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true" ? <DemoControls onSelect={selectDemoState} /> : null}
           </div>
         </section>
 

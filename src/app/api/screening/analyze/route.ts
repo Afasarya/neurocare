@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   }
 
   const isDevelopmentDemo =
-    process.env.NODE_ENV !== "production" &&
+    process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true" &&
     request.headers.get("x-neurocare-demo") === "screening-fixture-v1";
 
   if (isDevelopmentDemo) {
@@ -69,6 +69,29 @@ export async function POST(request: Request) {
   }
 
   const result = await analyzeWithScreeningEngine(parsed.data);
+  const okResult = result.data.status === "ok" ? result.data : null;
+
+  // Persist session to database (ignoring non-critical errors so response is never blocked)
+  try {
+    await supabase.from("screening_sessions").upsert({
+      user_id: data.user.id,
+      operation_id: parsed.data.requestId,
+      pathway: "neuroprevent",
+      input_snapshot: parsed.data,
+      safety_status: "clear",
+      result_status: result.data.status,
+      risk_scope: okResult ? "cvd_10y" : null,
+      result_snapshot: result.data,
+      source_name: okResult?.source.name ?? null,
+      source_region: okResult?.source.region ?? null,
+      source_version: okResult?.source.version ?? null,
+      engine_version: okResult?.source.engineVersion ?? null,
+      completed_at: new Date().toISOString(),
+    }, { onConflict: "user_id,operation_id" });
+  } catch (dbError) {
+    console.error("Non-blocking failure persisting screening session:", dbError);
+  }
+
   return Response.json(result, { status: 200, headers: responseHeaders });
 }
 
