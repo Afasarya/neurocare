@@ -26,7 +26,7 @@ import {
   type TimelineEventKind,
   type TimelineResponse,
 } from "@/features/health-records/health-records.contract";
-import { measurementToTimelineEvent, sortTimelineEvents } from "@/features/health-records/health-records.selectors";
+import { sortTimelineEvents } from "@/features/health-records/health-records.selectors";
 import { MeasurementEntryForm } from "@/features/health-records/components/measurement-entry-form";
 
 type Scenario = "baseline" | "empty" | "unavailable" | "network-error";
@@ -36,23 +36,21 @@ export function HealthTimelineView() {
   const queryClient = useQueryClient();
   const [scenario, setScenario] = useState<Scenario>("baseline");
   const [filter, setFilter] = useState<EventFilter>("all");
-  const [createdEvents, setCreatedEvents] = useState<TimelineEvent[]>([]);
-  const isDevelopment = process.env.NODE_ENV !== "production";
+  const demoEnabled = process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true";
   const timeline = useQuery({ queryKey: ["health-timeline", "current-user", scenario], queryFn: ({ signal }) => fetchTimeline(scenario, signal) });
   const actions = useQuery({ queryKey: ["action-items", "current-user", scenario], queryFn: ({ signal }) => fetchActions(scenario, signal) });
-  const events = sortTimelineEvents([...createdEvents, ...(timeline.data?.data.status === "ok" ? timeline.data.data.events : [])]);
+  const events = sortTimelineEvents(timeline.data?.data.status === "ok" ? timeline.data.data.events : []);
   const visibleEvents = filter === "all" ? events : events.filter((event) => event.kind === filter);
 
   function addMeasurement(measurement: HealthMeasurement) {
-    const event = measurementToTimelineEvent(measurement);
-    setCreatedEvents((current) => current.some((item) => item.id === event.id) ? current : [event, ...current]);
+    void measurement;
     void queryClient.invalidateQueries({ queryKey: ["health-timeline"] });
   }
 
   return <main>
-    <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-neuro-blue px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F08 · Shared foundation</span>{isDevelopment ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}</div><h1 className="mt-4 text-3xl font-medium tracking-[-0.045em] text-neuro-slate sm:text-4xl">Timeline kesehatan</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Urutan pengukuran dan aktivitas berdasarkan waktu sumbernya. Nilai mentah tidak digunakan untuk membuat diagnosis.</p></div><Link href="/app/action-plan" className="focus-ring inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-neuro-slate px-5 text-sm font-semibold text-white"><ListChecks className="size-4" />Buka rencana tindakan</Link></div>
+    <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-neuro-blue px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F08 · Shared foundation</span>{demoEnabled ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}</div><h1 className="mt-4 text-3xl font-medium tracking-[-0.045em] text-neuro-slate sm:text-4xl">Timeline kesehatan</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Urutan pengukuran dan aktivitas berdasarkan waktu sumbernya. Nilai mentah tidak digunakan untuk membuat diagnosis.</p></div><Link href="/app/action-plan" className="focus-ring inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-neuro-slate px-5 text-sm font-semibold text-white"><ListChecks className="size-4" />Buka rencana tindakan</Link></div>
 
-    {isDevelopment ? <DemoControls value={scenario} onChange={(next) => { setScenario(next); setCreatedEvents([]); }} /> : null}
+    {demoEnabled ? <DemoControls value={scenario} onChange={setScenario} /> : null}
 
     <TimelineWidgets events={events} actions={actions.data} />
 
@@ -60,7 +58,7 @@ export function HealthTimelineView() {
       <section className="rounded-[2rem] border border-black/5 bg-white p-5 sm:p-7" aria-labelledby="timeline-heading">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h2 id="timeline-heading" className="text-xl font-semibold text-neuro-slate">Kejadian terbaru</h2><p className="mt-1 text-sm text-muted-foreground">Diurutkan dari waktu kejadian, bukan waktu halaman dibuka.</p></div><button type="button" onClick={() => timeline.refetch()} disabled={timeline.isFetching} className="focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-black/10 px-4 text-sm font-semibold text-neuro-slate disabled:opacity-50"><RefreshCw className={`size-4 ${timeline.isFetching ? "animate-spin" : ""}`} />Perbarui</button></div>
         <EventFilters value={filter} onChange={setFilter} />
-        <div className="mt-6" aria-live="polite">{timeline.isPending ? <LoadingState label="Memuat timeline…" /> : null}{timeline.isError ? <ErrorState onRetry={() => timeline.refetch()} /> : null}{timeline.data?.data.status === "empty" && createdEvents.length === 0 ? <EmptyState /> : null}{timeline.data?.data.status === "unavailable" ? <UnavailableState message={timeline.data.data.message} /> : null}{!timeline.isPending && !timeline.isError && visibleEvents.length > 0 ? <EventList events={visibleEvents} /> : null}{!timeline.isPending && !timeline.isError && events.length > 0 && visibleEvents.length === 0 ? <p className="rounded-2xl bg-neuro-cream p-5 text-sm text-muted-foreground">Tidak ada kejadian untuk filter ini.</p> : null}</div>
+        <div className="mt-6" aria-live="polite">{timeline.isPending ? <LoadingState label="Memuat timeline…" /> : null}{timeline.isError ? <ErrorState onRetry={() => timeline.refetch()} /> : null}{timeline.data?.data.status === "empty" ? <EmptyState /> : null}{timeline.data?.data.status === "unavailable" ? <UnavailableState message={timeline.data.data.message} /> : null}{!timeline.isPending && !timeline.isError && visibleEvents.length > 0 ? <EventList events={visibleEvents} /> : null}{!timeline.isPending && !timeline.isError && events.length > 0 && visibleEvents.length === 0 ? <p className="rounded-2xl bg-neuro-cream p-5 text-sm text-muted-foreground">Tidak ada kejadian untuk filter ini.</p> : null}</div>
         {timeline.data?.data.status === "ok" ? <p className="mt-6 border-t border-black/5 pt-4 text-xs text-muted-foreground">Terakhir diperbarui {formatDateTime(timeline.data.data.lastUpdatedAt)} · Zona waktu Asia/Jakarta · Sumber setiap kejadian ditampilkan terpisah.</p> : null}
       </section>
       <div className="space-y-5"><MeasurementEntryForm onSaved={addMeasurement} /><section className="rounded-[2rem] border border-black/5 bg-neuro-green p-5"><ShieldCheck className="size-6 text-neuro-slate" /><h2 className="mt-4 font-semibold text-neuro-slate">Privasi dan kontrol data</h2><p className="mt-2 text-sm leading-6 text-neuro-slate/70">Kebijakan ekspor, penghapusan, retention, dan consent masih menunggu persetujuan tim. NeuroCare tidak menampilkan tautan yang belum berfungsi.</p><div className="mt-4 flex gap-2"><span className="rounded-full bg-white/70 px-3 py-2 text-xs text-neuro-slate" aria-disabled="true">Ekspor belum tersedia</span><span className="rounded-full bg-white/70 px-3 py-2 text-xs text-neuro-slate" aria-disabled="true">Hapus data belum tersedia</span></div></section></div>
@@ -87,7 +85,7 @@ function DemoControls({ value, onChange }: { value: Scenario; onChange: (value: 
 
 async function fetchTimeline(scenario: Scenario, signal: AbortSignal): Promise<TimelineResponse> { if (scenario === "network-error") throw new Error("Simulated network error"); const response = await fetch(`/api/timeline?scenario=${scenario}`, { headers: demoHeaders(), cache: "no-store", signal }); if (!response.ok) throw new Error("Timeline request failed"); const payload: unknown = await response.json(); const parsed = timelineResponseSchema.safeParse(payload); if (!parsed.success) throw new Error("Invalid timeline response"); return parsed.data; }
 async function fetchActions(scenario: Scenario, signal: AbortSignal): Promise<ActionItemsResponse> { const apiScenario = scenario === "empty" || scenario === "unavailable" ? scenario : "baseline"; const response = await fetch(`/api/action-items?scenario=${apiScenario}`, { headers: demoHeaders(), cache: "no-store", signal }); if (!response.ok) throw new Error("Action request failed"); const payload: unknown = await response.json(); const parsed = actionItemsResponseSchema.safeParse(payload); if (!parsed.success) throw new Error("Invalid action response"); return parsed.data; }
-function demoHeaders(): Record<string, string> { return process.env.NODE_ENV !== "production" ? { "X-NeuroCare-Records-Demo": "health-records-fixture-v1" } : {}; }
+function demoHeaders(): Record<string, string> { return process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true" ? { "X-NeuroCare-Records-Demo": "health-records-fixture-v1" } : {}; }
 function kindLabel(kind: TimelineEventKind) { return { screening: "Skrining", measurement: "Pengukuran", pulse_measurement: "Pengukuran detak", recovery_checkin: "Check-in pemulihan", recovery_activity: "Aktivitas pemulihan", action_item: "Rencana tindakan" }[kind]; }
 function pathwayLabel(pathway: TimelineEvent["pathway"]) { return { neuroprevent: "NeuroPrevent", neurorecovery: "NeuroRecovery", shared: "Bersama" }[pathway]; }
 function formatDateTime(value: string) { return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(value)); }

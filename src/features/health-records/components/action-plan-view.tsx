@@ -19,6 +19,7 @@ type StatusFilter = "pending" | "completed";
 export function ActionPlanView() {
   const [scenario, setScenario] = useState<Scenario>("baseline");
   const [filter, setFilter] = useState<StatusFilter>("pending");
+  const demoEnabled = process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true";
   const queryClient = useQueryClient();
   const queryKey = ["action-items", "current-user", scenario] as const;
   const query = useQuery({ queryKey, queryFn: ({ signal }) => fetchActionItems(scenario, signal) });
@@ -39,9 +40,9 @@ export function ActionPlanView() {
 
   return <main>
     <Link href="/app/timeline" className="focus-ring inline-flex items-center gap-2 rounded-full text-sm font-medium text-muted-foreground hover:text-neuro-slate"><ArrowLeft className="size-4" />Kembali ke timeline</Link>
-    <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-neuro-green px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F08 · Action planner</span>{process.env.NODE_ENV !== "production" ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}</div><h1 className="mt-4 text-3xl font-medium tracking-[-0.045em] text-neuro-slate sm:text-4xl">Rencana tindak lanjut</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Daftar administratif dari sumber yang terlihat. Rencana ini bukan resep, diagnosis, atau pengganti arahan tenaga kesehatan.</p></div></div>
+    <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-neuro-green px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F08 · Action planner</span>{demoEnabled ? <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Data demo (simulasi)</span> : null}</div><h1 className="mt-4 text-3xl font-medium tracking-[-0.045em] text-neuro-slate sm:text-4xl">Rencana tindak lanjut</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Daftar administratif dari sumber yang terlihat. Rencana ini bukan resep, diagnosis, atau pengganti arahan tenaga kesehatan.</p></div></div>
 
-    {process.env.NODE_ENV !== "production" ? <DemoControls value={scenario} onChange={setScenario} /> : null}
+    {demoEnabled ? <DemoControls value={scenario} onChange={setScenario} /> : null}
 
     <section className="mt-5 grid gap-4 sm:grid-cols-3" aria-label="Ringkasan rencana"><Summary label="Belum dikerjakan" value={items.filter((item) => item.status === "pending").length} /><Summary label="Selesai" value={items.filter((item) => item.status === "completed").length} /><Summary label="Duplikat aktif" value={duplicateCount(items)} /></section>
 
@@ -65,6 +66,6 @@ function DemoControls({ value, onChange }: { value: Scenario; onChange: (value: 
 
 async function fetchActionItems(scenario: Scenario, signal: AbortSignal): Promise<ActionItemsResponse> { if (scenario === "network-error") throw new Error("Simulated network error"); const response = await fetch(`/api/action-items?scenario=${scenario}`, { headers: demoHeaders(), cache: "no-store", signal }); if (!response.ok) throw new Error("Action items request failed"); const payload: unknown = await response.json(); const parsed = actionItemsResponseSchema.safeParse(payload); if (!parsed.success) throw new Error("Invalid action items response"); return parsed.data; }
 async function updateActionItem(id: string, status: ActionItem["status"]): Promise<ActionItemUpdateResponse> { const response = await fetch(`/api/action-items/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", ...demoHeaders() }, body: JSON.stringify({ requestId: crypto.randomUUID(), status }), cache: "no-store", signal: AbortSignal.timeout(10_000) }); if (!response.ok) throw new Error("Action update failed"); const payload: unknown = await response.json(); const parsed = actionItemUpdateResponseSchema.safeParse(payload); if (!parsed.success) throw new Error("Invalid action update response"); return parsed.data; }
-function demoHeaders(): Record<string, string> { return process.env.NODE_ENV !== "production" ? { "X-NeuroCare-Records-Demo": "health-records-fixture-v1" } : {}; }
+function demoHeaders(): Record<string, string> { return process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true" ? { "X-NeuroCare-Records-Demo": "health-records-fixture-v1" } : {}; }
 function duplicateCount(items: ActionItem[]) { return items.length - new Set(items.map((item) => item.dedupeKey)).size; }
 function formatDateTime(value: string) { return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(value)); }

@@ -2,6 +2,7 @@ import { healthMeasurementCreateSchema, type MeasurementCreateResponse } from "@
 import { isMeasuredAtAllowed } from "@/features/health-records/health-records.selectors";
 import { authenticatedHealthUser, healthApiError, privateHealthHeaders, readHealthJson, unavailableMeta } from "@/features/health-records/server/health-records-api";
 import { createMeasurementFixture } from "@/features/health-records/server/health-records-fixture";
+import { HealthRecordsStorageError, saveHealthMeasurement } from "@/features/health-records/server/health-records-repository";
 
 export async function POST(request: Request) {
   const fallbackRequestId = crypto.randomUUID();
@@ -19,9 +20,20 @@ export async function POST(request: Request) {
   if (auth.status === "not_configured") return healthApiError(503, parsed.data.requestId, "AUTH_NOT_CONFIGURED", "Autentikasi belum dikonfigurasi.");
   if (auth.status === "unauthenticated") return healthApiError(401, parsed.data.requestId, "UNAUTHENTICATED", "Silakan masuk sebelum menyimpan pengukuran.");
 
-  const response: MeasurementCreateResponse = {
-    data: { status: "unavailable", reason: "schema_not_approved", retryable: false, message: "Schema pengukuran, rentang validasi, retention, dan RLS belum disetujui. Tidak ada data yang disimpan." },
-    meta: unavailableMeta(parsed.data.requestId),
-  };
-  return Response.json(response, { headers: privateHealthHeaders });
+  try {
+    const measurement = await saveHealthMeasurement(auth.supabase, auth.user.id, parsed.data);
+    const response: MeasurementCreateResponse = {
+      data: { status: "saved", measurement },
+      meta: { ...unavailableMeta(parsed.data.requestId), demo: false },
+    };
+    return Response.json(response, { headers: privateHealthHeaders });
+  } catch (error) {
+    const storageKind = error instanceof HealthRecordsStorageError ? error.kind : "service_error";
+    const reason = storageKind === "not_found" ? "service_error" : storageKind;
+    const response: MeasurementCreateResponse = {
+      data: { status: "unavailable", reason, retryable: reason === "service_error", message: reason === "storage_not_configured" ? "Penyimpanan belum tersedia. Terapkan migration database NeuroCare terlebih dahulu." : "Pengukuran belum dapat disimpan. Periksa koneksi lalu coba lagi." },
+      meta: unavailableMeta(parsed.data.requestId),
+    };
+    return Response.json(response, { headers: privateHealthHeaders });
+  }
 }

@@ -1,6 +1,7 @@
 import { actionItemUpdateSchema, type ActionItemUpdateResponse } from "@/features/health-records/health-records.contract";
 import { authenticatedHealthUser, healthApiError, privateHealthHeaders, readHealthJson, unavailableMeta } from "@/features/health-records/server/health-records-api";
 import { updateActionItemFixture } from "@/features/health-records/server/health-records-fixture";
+import { HealthRecordsStorageError, updateActionItem } from "@/features/health-records/server/health-records-repository";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const fallbackRequestId = crypto.randomUUID();
@@ -19,9 +20,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (auth.status === "not_configured") return healthApiError(503, parsed.data.requestId, "AUTH_NOT_CONFIGURED", "Autentikasi belum dikonfigurasi.");
   if (auth.status === "unauthenticated") return healthApiError(401, parsed.data.requestId, "UNAUTHENTICATED", "Silakan masuk sebelum mengubah rencana.");
 
-  const response: ActionItemUpdateResponse = {
-    data: { status: "unavailable", reason: "schema_not_approved", retryable: false, message: "Penyimpanan action item dan RLS belum disetujui. Status tidak diubah." },
-    meta: unavailableMeta(parsed.data.requestId),
-  };
-  return Response.json(response, { headers: privateHealthHeaders });
+  try {
+    const item = await updateActionItem(auth.supabase, auth.user.id, id, parsed.data);
+    const response: ActionItemUpdateResponse = {
+      data: { status: "saved", item },
+      meta: unavailableMeta(parsed.data.requestId),
+    };
+    return Response.json(response, { headers: privateHealthHeaders });
+  } catch (error) {
+    const reason = error instanceof HealthRecordsStorageError ? error.kind : "service_error";
+    const response: ActionItemUpdateResponse = {
+      data: { status: "unavailable", reason, retryable: reason === "service_error", message: reason === "not_found" ? "Rencana tidak ditemukan atau bukan milik akun ini." : reason === "storage_not_configured" ? "Penyimpanan rencana belum tersedia. Terapkan migration database NeuroCare terlebih dahulu." : "Status rencana belum dapat disimpan. Periksa koneksi lalu coba lagi." },
+      meta: unavailableMeta(parsed.data.requestId),
+    };
+    return Response.json(response, { headers: privateHealthHeaders });
+  }
 }

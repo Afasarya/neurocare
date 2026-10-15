@@ -5,8 +5,19 @@ import { AppQueryProvider } from "@/components/providers/app-query-provider";
 import { getCommunicationRehabNavigationItem } from "@/features/communication-rehab/communication-rehab.flags";
 import { getCognitiveActivityNavigationItem } from "@/features/cognitive-activities/cognitive-activity.flags";
 import { getCaregiverNavigationItem } from "@/features/caregiver/caregiver.flags";
+import { redirect } from "next/navigation";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-export default function AppLayout({ children }: LayoutProps<"/app">) {
+export const instant = false;
+
+export default async function AppLayout({ children }: LayoutProps<"/app">) {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = supabase
+    ? await supabase.auth.getUser()
+    : { data: { user: null } };
+
+  if (!user) redirect("/login");
+
   const communicationRehabNavigation = getCommunicationRehabNavigationItem();
   const cognitiveActivityNavigation = getCognitiveActivityNavigationItem();
   const caregiverNavigation = getCaregiverNavigationItem();
@@ -23,12 +34,15 @@ export default function AppLayout({ children }: LayoutProps<"/app">) {
           <span className="rounded-full bg-neuro-green px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">
             NeuroCare App
           </span>
+          <form action="/api/auth/sign-out" method="post">
+            <button type="submit" className="focus-ring min-h-10 rounded-full border border-neuro-slate/10 px-4 text-sm font-semibold text-neuro-slate hover:bg-muted">Keluar</button>
+          </form>
         </div>
       </header>
       <div className="page-shell grid gap-6 py-6 lg:grid-cols-[15rem_1fr] lg:py-8">
         <aside className="hidden lg:block">
           <nav className="sticky top-6 grid gap-1 rounded-3xl border border-black/5 bg-white p-3" aria-label="Navigasi aplikasi">
-            <Link href="/" className="focus-ring flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-muted-foreground hover:bg-muted"><House className="size-4" />Beranda</Link>
+            <Link href="/app/dashboard" className="focus-ring flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-muted-foreground hover:bg-muted"><House className="size-4" />Dashboard</Link>
             <Link href="/app/screening" className="focus-ring flex items-center gap-3 rounded-2xl bg-neuro-green px-4 py-3 text-sm font-semibold text-neuro-slate"><ClipboardCheck className="size-4" />Skrining</Link>
             <Link href="/app/pulse-monitor" className="focus-ring flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-muted-foreground hover:bg-muted"><HeartPulse className="size-4" />Monitor detak</Link>
             <Link href="/app/insights" className="focus-ring flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-muted-foreground hover:bg-muted"><Sparkles className="size-4" />Insight kesehatan</Link>
@@ -47,7 +61,7 @@ export default function AppLayout({ children }: LayoutProps<"/app">) {
         <div className="min-w-0">{children}</div>
       </div>
       <nav className="sticky bottom-3 z-40 mx-auto mb-3 flex w-[calc(100%_-_1rem)] max-w-xl items-center justify-start overflow-x-auto rounded-full border border-black/5 bg-white/95 p-2 shadow-lg backdrop-blur lg:hidden" aria-label="Navigasi bawah">
-        <Link href="/" className="focus-ring grid min-w-12 place-items-center gap-1 rounded-full px-1 py-2 text-[0.6rem] text-muted-foreground"><House className="size-4" />Beranda</Link>
+        <Link href="/app/dashboard" className="focus-ring grid min-w-12 place-items-center gap-1 rounded-full px-1 py-2 text-[0.6rem] text-muted-foreground"><House className="size-4" />Dashboard</Link>
         <Link href="/app/screening" className="focus-ring grid min-w-12 place-items-center gap-1 rounded-full bg-neuro-green px-1 py-2 text-[0.6rem] font-semibold text-neuro-slate"><ClipboardCheck className="size-4" />Skrining</Link>
         <Link href="/app/pulse-monitor" className="focus-ring grid min-w-12 place-items-center gap-1 rounded-full px-1 py-2 text-[0.6rem] text-muted-foreground"><HeartPulse className="size-4" />Detak</Link>
         <Link href="/app/insights" className="focus-ring grid min-w-12 place-items-center gap-1 rounded-full px-1 py-2 text-[0.6rem] text-muted-foreground"><Sparkles className="size-4" />Insight</Link>

@@ -59,11 +59,11 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden items-center gap-2 sm:flex">
-          <CtaLink href="/app/screening" variant="ghost" className="min-h-10 px-4">
-            Coba Demo
+          <CtaLink href="/login" variant="ghost" className="min-h-10 px-4">
+            Masuk
           </CtaLink>
-          <CtaLink href="#install" variant="primary" className="min-h-10 px-4">
-            Instal App
+          <CtaLink href="/register" variant="primary" className="min-h-10 px-4">
+            Daftar
           </CtaLink>
         </div>
 
@@ -93,10 +93,10 @@ export function SiteHeader() {
               ))}
             </nav>
             <div className="mt-auto grid gap-2 p-3">
-              <CtaLink href="/app/screening" variant="ghost">
-                Coba Demo
+              <CtaLink href="/login" variant="ghost">
+                Masuk
               </CtaLink>
-              <CtaLink href="#install">Instal App</CtaLink>
+              <CtaLink href="/register">Daftar</CtaLink>
             </div>
           </SheetContent>
         </Sheet>

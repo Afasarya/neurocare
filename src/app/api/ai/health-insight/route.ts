@@ -12,6 +12,7 @@ import {
 } from "@/features/insights/server/insight-fixture";
 import { consumeInsightQuota } from "@/features/insights/server/rate-limit";
 import { resolveHealthInsight } from "@/features/insights/server/insight-service";
+import { hasActiveExternalAiConsent } from "@/features/insights/server/external-ai-consent";
 
 const MAX_BODY_BYTES = 24 * 1024;
 const responseHeaders = {
@@ -64,7 +65,16 @@ export async function POST(request: Request) {
     return apiError(401, parsed.data.requestId, "UNAUTHENTICATED", "Silakan masuk sebelum membuat insight.");
   }
 
-  const result = await resolveHealthInsight(parsed.data, async (input) => {
+  // The request body is never an authorization grant. The latest stored
+  // append-only consent event is authoritative, so withdrawal blocks the very
+  // next request even if a stale browser still submits `true`.
+  const hasStoredConsent = await hasActiveExternalAiConsent(supabase, data.user.id);
+  const consentedInput = {
+    ...parsed.data,
+    consentToExternalAi: parsed.data.consentToExternalAi && hasStoredConsent,
+  };
+
+  const result = await resolveHealthInsight(consentedInput, async (input) => {
     if (process.env.AI_HEALTH_INSIGHT_SCHEMA_VERSION !== HEALTH_INSIGHT_SCHEMA_VERSION) {
       return contractNotApproved(input);
     }

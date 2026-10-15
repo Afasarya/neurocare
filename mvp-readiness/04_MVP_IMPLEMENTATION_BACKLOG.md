@@ -4,11 +4,11 @@
 This is a *proposed order of work*, not a factual completion report. Agent must first audit and mark each item `VERIFIED_DONE`, `PARTIAL`, `BLOCKED`, or `NOT_STARTED` with evidence.
 
 ## Phase 0 — Evidence and architecture alignment (P0)
-- [ ] **MVP-000** Audit source, routes, DB, UX, API, docs; save `ACTUAL_AUDIT_RESULTS.md`.
-- [ ] **MVP-001** Repair root `AGENTS.md`: link canonical product and engineering docs; preserve Next.js 16 compatibility guidance.
-- [ ] **MVP-002** Replace create-next-app README with real setup guide, env var names, architecture, test commands, fixture/live modes.
-- [ ] **MVP-003** Build route matrix; annotate dead routes, orphan pages, unexpected redirect, missing auth guards.
-- [ ] **MVP-004** Establish verification gates: lint, TypeScript, test, production build, browser flow smoke.
+- [x] **MVP-000** Audit source, routes, DB, UX, API, docs; save `ACTUAL_AUDIT_RESULTS.md`.
+- [x] **MVP-001** Repair root `AGENTS.md`: link canonical product and engineering docs; preserve Next.js 16 compatibility guidance.
+- [x] **MVP-002** Replace create-next-app README with real setup guide, env var names, architecture, test commands, fixture/live modes.
+- [x] **MVP-003** Build route matrix; annotate dead routes, orphan pages, unexpected redirect, missing auth guards.
+- [x] **MVP-004** Establish verification gates: lint, TypeScript, test, production build, browser flow smoke.
 
 ## Phase 1 — Shared foundation (P0; prerequisites for every feature)
 - [ ] **MVP-010** Verify Supabase browser/server clients, cookie/session refresh, authenticated route guarding.
@@ -48,7 +48,7 @@ This is a *proposed order of work*, not a factual completion report. Agent must 
 - [ ] **UX-006** Test with at least three novice users; log confusion points and fix top blockers.
 
 ## Phase 6 — Release gates
-- [ ] **REL-001** `npm ci`, `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` pass.
+- [x] **REL-001** `npm ci`, `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build` pass.
 - [ ] **REL-002** Auth/RLS negative tests on two accounts.
 - [ ] **REL-003** Prevent + Recovery successful persistence after reload.
 - [ ] **REL-004** AI timeout/invalid response and offline fallback tests.

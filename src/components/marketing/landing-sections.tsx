@@ -38,7 +38,7 @@ export function HeroSection() {
             </h1>
             <p className="mt-7 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">NeuroCare membantu pengguna usia produktif dan penyintas stroke tetap terhubung dengan skrining, insight pendukung, serta tindak lanjut kesehatan dalam satu PWA.</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <CtaLink href="/app/screening">Coba Skrining Demo</CtaLink>
+              <CtaLink href="/register">Mulai dengan akun</CtaLink>
               <CtaLink href="#cara-kerja" variant="secondary">Jelajahi Cara Kerja</CtaLink>
             </div>
             <div className="mt-auto grid gap-4 border-t border-black/5 pt-8 sm:grid-cols-2 lg:mt-12">
@@ -170,7 +170,7 @@ export function FAQSection() {
 
 export function FinalCTA() {
   return (
-    <section className="px-4 pb-4"><div className="mx-auto max-w-[88rem] overflow-hidden rounded-[2rem] bg-neuro-slate text-white"><div className="page-shell section-space grid gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-end"><div><Eyebrow tone="neutral">Mulai dengan tenang</Eyebrow><h2 className="mt-6 max-w-4xl text-balance text-4xl font-medium leading-[1.02] tracking-[-0.055em] sm:text-5xl lg:text-7xl">Mulai dari pencegahan. Lanjutkan dengan dukungan.</h2></div><div><p className="max-w-md leading-7 text-white/65">Jelajahi bagaimana NeuroCare menyatukan pencatatan, insight pendukung, dan tindak lanjut dalam pengalaman yang mudah diakses.</p><div className="mt-7 flex flex-col gap-3 sm:flex-row"><CtaLink href="/app/screening" variant="secondary">Coba Demo</CtaLink><CtaLink href="#install" variant="ghost" className="border-white/15 bg-white/10 text-white hover:bg-white/15">Instal PWA</CtaLink></div></div></div></div></section>
+    <section className="px-4 pb-4"><div className="mx-auto max-w-[88rem] overflow-hidden rounded-[2rem] bg-neuro-slate text-white"><div className="page-shell section-space grid gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-end"><div><Eyebrow tone="neutral">Mulai dengan tenang</Eyebrow><h2 className="mt-6 max-w-4xl text-balance text-4xl font-medium leading-[1.02] tracking-[-0.055em] sm:text-5xl lg:text-7xl">Mulai dari pencegahan. Lanjutkan dengan dukungan.</h2></div><div><p className="max-w-md leading-7 text-white/65">Jelajahi bagaimana NeuroCare menyatukan pencatatan, insight pendukung, dan tindak lanjut dalam pengalaman yang mudah diakses.</p><div className="mt-7 flex flex-col gap-3 sm:flex-row"><CtaLink href="/register" variant="secondary">Buat akun</CtaLink><CtaLink href="#install" variant="ghost" className="border-white/15 bg-white/10 text-white hover:bg-white/15">Instal PWA</CtaLink></div></div></div></div></section>
   );
 }
 
