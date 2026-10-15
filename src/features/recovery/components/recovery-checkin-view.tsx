@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm, useWatch, type Path, type UseFormRegister } from "react-hook-form";
 import {
   AlertTriangle,
@@ -38,6 +38,7 @@ const stepNames = ["Keselamatan", "Cara pengisian", "Penilaian mandiri", "Konfir
 const defaultValues: Partial<RecoveryFormValues> = { assistanceNote: "", responseNote: "", confirmation: false };
 
 export function RecoveryCheckinView() {
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [emergency, setEmergency] = useState(false);
   const [scenario, setScenario] = useState<DemoScenario>("baseline");
@@ -61,6 +62,7 @@ export function RecoveryCheckinView() {
     },
     onSuccess: (response) => {
       if (response.data.status !== "saved") return;
+      void queryClient.invalidateQueries({ queryKey: ["recovery-progress"] });
       const checkin = response.data.checkin;
       setCreatedCheckins((current) => current.some((item) => item.id === checkin.id) ? current : [checkin, ...current]);
       setSelectedId(checkin.id);
