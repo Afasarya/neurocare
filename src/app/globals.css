@@ -112,6 +112,23 @@ body {
   .focus-ring:focus-visible {
     box-shadow: 0 0 0 3px rgb(99 128 108 / 0.35);
   }
+
+  .field-control {
+    min-height: 3rem;
+    width: 100%;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: white;
+    padding-inline: 1rem;
+    font-size: 0.875rem;
+    color: var(--foreground);
+    outline: none;
+  }
+
+  .field-control:focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px rgb(99 128 108 / 0.22);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

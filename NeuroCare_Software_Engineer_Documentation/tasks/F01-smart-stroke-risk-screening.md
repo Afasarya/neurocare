@@ -21,20 +21,20 @@ User fills a valid screening questionnaire, receives an eligibility-aware determ
 
 ## 3. Task checklist - UI / frontend
 
-- [ ] Create `/app/screening` step flow: pre-screening limitations + emergency notice, eligibility, questionnaire, review, status/result.
-- [ ] Provide accessible labeled inputs for age/date of birth, sex category required by approved chart, smoking, measured systolic BP and its date, height/weight or BMI inputs according to approved non-lab schema; distinguish unknown from missing/invalid.
+- [x] Create `/app/screening` step flow: pre-screening limitations + emergency notice, eligibility, questionnaire, review, status/result.
+- [x] Provide accessible labeled inputs for age/date of birth, sex category required by approved chart, smoking, measured systolic BP and its date, height/weight or BMI inputs according to approved non-lab schema; distinguish unknown from missing/invalid.
 - [ ] Implement emergency-gate UI before routine flow with reviewed content; when positive, stop the assessment and show emergency help screen.
-- [ ] Explain that result (when eligible) represents **10-year combined cardiovascular event risk**, not individual stroke probability.
+- [x] Explain that result (when eligible) represents **10-year combined cardiovascular event risk**, not individual stroke probability.
 - [ ] Create `/app/screening/history` for dated prior results with a non-medical status and source label.
-- [ ] Show `eligibility unknown`, `not eligible`, `insufficient data`, `calculating`, `success`, `service unavailable`, `emergency` distinctly.
+- [x] Show `eligibility unknown`, `not eligible`, `insufficient data`, `calculating`, `success`, `service unavailable`, `emergency` distinctly.
 - [ ] Use responsive wizard/progress controls, save/return affordance only if data privacy and persistence are explicitly designed.
 
 ## 4. Task checklist - API / state / Supabase integration
 
-- [ ] Create client Zod schema and separate server-side Zod schema; validate units, required fields and explicit unknown values without inventing clinical thresholds.
+- [x] Create client Zod schema and separate server-side Zod schema; validate units, required fields and explicit unknown values without inventing clinical thresholds.
 - [ ] Agree `POST /api/screening/analyze` request/response with AI Engineer, including medical status union, CVD result semantics, data source and version.
-- [ ] Authenticate Route Handler, derive user from server session; do not trust submitted owner ID.
-- [ ] Call AI Engineer clinical/rules service using server-only adapter, timeout and response schema; never implement WHO lookup in UI.
+- [x] Authenticate Route Handler, derive user from server session; do not trust submitted owner ID.
+- [x] Call AI Engineer clinical/rules service using server-only adapter, timeout and response schema; never implement WHO lookup in UI.
 - [ ] Persist screening record with timestamp, eligibility/status, minimal validated inputs, source/version and user ownership (subject to reviewed retention policy).
 - [ ] Send validated session result to F02/F04 views via a stable record ID/adapter; avoid recalculating from LLM text.
 - [ ] Apply rate/payload limits; no health fields in console or provider error logs.
@@ -47,10 +47,10 @@ User fills a valid screening questionnaire, receives an eligibility-aware determ
 
 ## 6. Safety, privacy and authorization checks
 
-- [ ] Previous stroke/TIA/CVD and ages 18-39 must not get primary-prevention WHO numeric results.
-- [ ] Triage UX must take precedence over calculations/insight generation.
+- [x] Previous stroke/TIA/CVD and ages 18-39 must not get primary-prevention WHO numeric results.
+- [x] Triage UX must take precedence over calculations/insight generation.
 - [ ] RLS read/write only the owner; cross-user access check required.
-- [ ] Never store draft sensitive answers in localStorage or PWA offline caches.
+- [x] Never store draft sensitive answers in localStorage or PWA offline caches.
 
 ## 7. Required tests / demo scenarios
 
@@ -84,13 +84,13 @@ User fills a valid screening questionnaire, receives an eligibility-aware determ
 
 ## 11. Feature delivery report (agent fills after implementation)
 
-- **Status:** TODO / IN PROGRESS / BLOCKED / DONE
+- **Status:** IN PROGRESS — UI, validation, safe demo fixture and authenticated API adapter implemented; clinical engine, reviewed safety copy, persistence and RLS remain blocked on external decisions.
 - **PR / commit:** _not started_
-- **Files added or changed:** _not started_
+- **Files added or changed:** `src/app/app/**`, `src/app/api/screening/analyze/route.ts`, `src/features/screening/**`, `src/lib/supabase/server.ts`, landing CTA integration, test tooling.
 - **Schema migrations:** _none yet_
-- **API contract / fixture reference:** _not agreed yet_
-- **Commands/tests actually run:** _not run_
-- **Manual device/accessibility/security checks:** _not run_
-- **Known limitations / follow-up:** _not recorded_
+- **API contract / fixture reference:** Proposed discriminated union in `screening.contract.ts`; safe development fixture `screening-fixture-v1`; AI Engineer approval still required.
+- **Commands/tests actually run:** `npm test -- --run`, `npx tsc --noEmit`, `npm run lint`, `npm run build`; HTTP route/API smoke tests.
+- **Manual device/accessibility/security checks:** Keyboard-oriented labels, focus styles, `aria-live`, no localStorage, no-cache API, auth-derived user path reviewed in code; real cross-user/RLS and physical-device tests not run.
+- **Known limitations / follow-up:** No approved clinical engine or category fixture; no persistence/history data; no rate limiter; safety copy needs clinical review; Supabase auth and RLS foundation must be completed before production use.
 
 > **Task discipline:** Check boxes only after verification. P2 tasks remain backlog unless the human Software Engineer explicitly activates them. For all tasks, the universal Definition of Done in `PROJECT_CONTEXT.md` and `AGENTS.md` also applies.
