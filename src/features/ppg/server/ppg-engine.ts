@@ -19,10 +19,11 @@ export async function analyzePpgWithEngine(
       body: prepared.body,
       requestId: input.requestId,
       responseSchema: ppgGatewayResponseSchema,
-      timeoutMs: 10_000,
+      timeoutMs: 25_000,
     });
     return mapPpgGatewayResponse(input, response);
   } catch (error) {
+    console.error("[ppg-engine] gateway error", error instanceof AiGatewayError ? { kind: error.kind, status: error.status, problem: error.problem } : error);
     if (!(error instanceof AiGatewayError)) {
       return unavailable(input.requestId, "service_error", true);
     }

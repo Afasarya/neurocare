@@ -24,10 +24,11 @@ export async function analyzeWithScreeningEngine(
       body: prepared.body,
       requestId: input.requestId,
       responseSchema: screeningGatewayResponseSchema,
-      timeoutMs: 10_000,
+      timeoutMs: 25_000,
     });
     return mapScreeningGatewayResponse(input, response);
   } catch (error) {
+    console.error("[screening-engine] gateway error", error instanceof AiGatewayError ? { kind: error.kind, status: error.status, problem: error.problem } : error);
     if (!(error instanceof AiGatewayError)) {
       return unavailable(input.requestId, "service_error", true);
     }

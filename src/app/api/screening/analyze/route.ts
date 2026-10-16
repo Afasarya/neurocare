@@ -7,6 +7,7 @@ import { analyzeWithScreeningEngine } from "@/features/screening/server/screenin
 import { hasActiveExternalAiConsent } from "@/features/insights/server/external-ai-consent";
 
 const MAX_BODY_BYTES = 16 * 1024;
+export const maxDuration = 60;
 const responseHeaders = {
   "Cache-Control": "private, no-store, max-age=0",
   Pragma: "no-cache",
@@ -78,13 +79,8 @@ export async function POST(request: Request) {
 
   const admin = createAdminSupabaseClient();
   if (okResult && !admin) {
-    return apiError(
-      503,
-      parsed.data.requestId,
-      "PERSISTENCE_NOT_CONFIGURED",
-      "Hasil tervalidasi belum dapat disimpan. Tidak ada konfirmasi penyimpanan yang dibuat.",
-      true,
-    );
+    // Penyimpanan belum dikonfigurasi (SUPABASE_SERVICE_ROLE_KEY): tetap tampilkan hasil agar pengguna mendapat output.
+    return Response.json(result, { status: 200, headers: responseHeaders });
   }
 
   if (admin) {

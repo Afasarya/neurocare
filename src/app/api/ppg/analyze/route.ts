@@ -4,6 +4,7 @@ import { createPpgFixture, type PpgDemoScenario } from "@/features/ppg/server/pp
 import { analyzePpgWithEngine } from "@/features/ppg/server/ppg-engine";
 
 const MAX_BODY_BYTES = 768 * 1024;
+export const maxDuration = 60;
 const responseHeaders = {
   "Cache-Control": "private, no-store, max-age=0",
   Pragma: "no-cache",
