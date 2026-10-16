@@ -20,7 +20,7 @@ import {
 import { usePpgCamera, type CameraState } from "@/features/ppg/hooks/use-ppg-camera";
 import type { PpgResult } from "@/features/ppg/ppg.contract";
 
-const CAPTURE_DURATION_MS = 20_000;
+const CAPTURE_DURATION_MS = 10_000;
 
 type DemoState = "capturing" | "analyzing" | "poor_signal" | "success" | "error" | null;
 
@@ -180,7 +180,7 @@ export function PulseMonitor() {
               <ol className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground sm:grid-cols-3">
                 <li><strong className="text-neuro-slate">1.</strong> Gunakan ponsel dengan HTTPS dan kamera belakang.</li>
                 <li><strong className="text-neuro-slate">2.</strong> Duduk tenang di tempat dengan cahaya merata.</li>
-                <li><strong className="text-neuro-slate">3.</strong> Tekan Aktifkan kamera, letakkan ujung jari menutupi lensa dan lampu, lalu tekan Mulai pengukuran (20 detik).</li>
+                <li><strong className="text-neuro-slate">3.</strong> Tekan Aktifkan kamera, letakkan ujung jari menutupi lensa dan lampu, lalu tekan Mulai pengukuran (10 detik).</li>
               </ol>
             </div>
 

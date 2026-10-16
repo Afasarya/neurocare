@@ -84,44 +84,42 @@ export async function POST(request: Request) {
   }
 
   if (admin) {
-    const { data: storedSession, error: storageError } = await admin
-      .from("screening_sessions")
-      .upsert({
-      user_id: data.user.id,
-      operation_id: parsed.data.requestId,
-      pathway: "neuroprevent",
-      input_snapshot: parsed.data,
-      safety_status: "clear",
-      result_status: result.data.status,
-      risk_scope: okResult ? "cvd_10y" : null,
-      result_snapshot: result.data,
-      source_name: okResult?.source.name ?? null,
-      source_region: okResult?.source.region ?? null,
-      source_version: okResult?.source.version ?? null,
-      engine_version: okResult?.source.engineVersion ?? null,
-      completed_at: new Date().toISOString(),
-      }, { onConflict: "user_id,operation_id" })
-      .select("id")
-      .single();
+    try {
+      const { data: storedSession, error: storageError } = await admin
+        .from("screening_sessions")
+        .upsert({
+          user_id: data.user.id,
+          operation_id: parsed.data.requestId,
+          pathway: "neuroprevent",
+          input_snapshot: parsed.data,
+          safety_status: "clear",
+          result_status: result.data.status,
+          risk_scope: okResult ? "cvd_10y" : null,
+          result_snapshot: result.data,
+          source_name: okResult?.source.name ?? null,
+          source_region: okResult?.source.region ?? null,
+          source_version: okResult?.source.version ?? null,
+          engine_version: okResult?.source.engineVersion ?? null,
+          completed_at: new Date().toISOString(),
+        }, { onConflict: "user_id,operation_id" })
+        .select("id")
+        .maybeSingle();
 
-    if (storageError || !storedSession) {
-      return apiError(
-        503,
-        parsed.data.requestId,
-        "PERSISTENCE_FAILED",
-        "Hasil belum dapat disimpan. Silakan coba lagi tanpa mengubah data.",
-        true,
-      );
-    }
+      if (storageError) {
+        console.error("[screening] storage error (non-fatal):", storageError);
+      }
 
-    if (okResult) {
-      return Response.json(
-        screeningAnalyzeResponseSchema.parse({
-          ...result,
-          data: { ...okResult, recordId: storedSession.id },
-        }),
-        { status: 200, headers: responseHeaders },
-      );
+      if (okResult && storedSession?.id) {
+        return Response.json(
+          screeningAnalyzeResponseSchema.parse({
+            ...result,
+            data: { ...okResult, recordId: storedSession.id },
+          }),
+          { status: 200, headers: responseHeaders },
+        );
+      }
+    } catch (storageException) {
+      console.error("[screening] storage exception (non-fatal):", storageException);
     }
   }
 

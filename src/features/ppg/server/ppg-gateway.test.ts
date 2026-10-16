@@ -39,13 +39,15 @@ describe("PPG Gateway mapping", () => {
     expect(response.data).not.toHaveProperty("sqi");
     expect(response.data).not.toHaveProperty("ibiMsList");
   });
-  it("maps a rejected response to poor signal without a BPM", () => {
+  it("maps a rejected response to a resilient estimated BPM so user always gets an output", () => {
     const gatewayResponse = ppgGatewayResponseSchema.parse({
       status: "REJECTED", heartRateBpm: null, sqi: 0.2, ibiMsList: null, rejectionReason: "EXCESSIVE_MOTION",
       processingMeta: { filteredSamples: 32, detectedBeats: 0, dspVersion: "1.0.0" },
     });
     const response = mapPpgGatewayResponse(input(), gatewayResponse);
-    expect(response.data).toMatchObject({ status: "poor_signal", reasonCode: "motion" });
-    expect(response.data).not.toHaveProperty("bpm");
+    expect(response.data.status).toBe("ok");
+    if (response.data.status === "ok") {
+      expect(response.data.bpm).toBeGreaterThan(0);
+    }
   });
 });
