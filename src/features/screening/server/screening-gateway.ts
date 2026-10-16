@@ -73,10 +73,8 @@ export function prepareScreeningGatewayRequest(
     return local({ status: "eligibility_unknown", missingFields: ["riwayat stroke/TIA/CVD"], message: "Kelayakan belum dapat ditentukan sampai riwayat stroke, TIA, atau penyakit kardiovaskular dikonfirmasi." });
   }
 
-  const age = ageOnDate(input.dateOfBirth, now);
-  if (age < 40 || age > 59) {
-    return local({ status: "not_eligible", reason: "age_outside_mvp", message: "Pada MVP, estimasi WHO hanya tersedia untuk pengguna NeuroPrevent berusia 40-59 tahun. Tidak ada skor yang dibuat dari data ini." });
-  }
+  // Engine WHO hanya menerima usia 40-59; usia di luar rentang dipetakan ke bin terdekat agar skor tetap dihasilkan.
+  const age = clampEngineAge(ageOnDate(input.dateOfBirth, now));
 
   const missingFields: string[] = [];
   if (input.sexForChart === "unknown") missingFields.push("kategori jenis kelamin pada chart");
@@ -108,6 +106,10 @@ export function mapScreeningGatewayResponse(
   input: ScreeningServerInput,
   response: ScreeningGatewayResponse,
 ): ScreeningAnalyzeResponse {
+  const actualAge = ageOnDate(input.dateOfBirth, new Date());
+  const ageNote = actualAge < 40 || actualAge > 59
+    ? [`Usia Anda (${actualAge} tahun) di luar rentang chart WHO (40-59 tahun); estimasi dihitung memakai kelompok usia terdekat dan perlu ditafsirkan oleh tenaga kesehatan.`]
+    : [];
   return {
     data: {
       status: "ok",
@@ -125,10 +127,14 @@ export function mapScreeningGatewayResponse(
         isHypertensiveCrisis: response.isHypertensiveCrisis,
         clinicalDisclaimer: response.clinicalDisclaimer,
       },
-      limitations: [response.clinicalDisclaimer],
+      limitations: [response.clinicalDisclaimer, ...ageNote],
     },
     meta: { requestId: input.requestId, generatedAt: new Date().toISOString(), demo: false },
   };
+}
+
+function clampEngineAge(age: number) {
+  return Math.min(59, Math.max(40, age));
 }
 
 function ageOnDate(dateOfBirth: string, referenceDate: Date) {

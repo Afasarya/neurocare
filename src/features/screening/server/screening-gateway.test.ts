@@ -22,10 +22,10 @@ describe("screening Gateway mapping", () => {
       weightKg: 60, heightCm: 165, bodyMassIndex: null, hasDiabetes: null, totalCholesterolMmolL: null,
     } });
   });
-  it("keeps ages 18-39 local and sends no WHO request", () => {
+  it("clamps ages outside 40-59 to the nearest engine bin and still calls the WHO engine", () => {
     const prepared = prepareScreeningGatewayRequest({ ...input, dateOfBirth: "1996-06-12" }, now);
-    expect(prepared.kind).toBe("local");
-    if (prepared.kind === "local") expect(prepared.response.data.status).toBe("not_eligible");
+    expect(prepared.kind).toBe("gateway");
+    if (prepared.kind === "gateway") expect(prepared.body.patientAgeYears).toBe(40);
   });
   it("short-circuits emergency and prior CVD independently of AI", () => {
     expect(prepareScreeningGatewayRequest({ ...input, emergencySymptoms: "yes" }, now)).toMatchObject({ kind: "local", response: { data: { status: "emergency" } } });

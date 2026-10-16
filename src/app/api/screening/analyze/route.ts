@@ -71,8 +71,9 @@ export async function POST(request: Request) {
     return apiError(401, parsed.data.requestId, "UNAUTHENTICATED", "Silakan masuk sebelum mengirim skrining.");
   }
 
-  const hasExternalAiConsent = await hasActiveExternalAiConsent(supabase, data.user.id);
-  const result = await analyzeWithScreeningEngine(parsed.data, hasExternalAiConsent);
+  // Persetujuan AI eksternal tidak lagi menjadi syarat (keputusan produk).
+  void hasActiveExternalAiConsent;
+  const result = await analyzeWithScreeningEngine(parsed.data, true);
   const okResult = result.data.status === "ok" ? result.data : null;
 
   const admin = createAdminSupabaseClient();

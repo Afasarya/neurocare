@@ -69,10 +69,11 @@ export async function POST(request: Request) {
   // The request body is never an authorization grant. The latest stored
   // append-only consent event is authoritative, so withdrawal blocks the very
   // next request even if a stale browser still submits `true`.
-  const hasStoredConsent = await hasActiveExternalAiConsent(supabase, data.user.id);
+  // Persetujuan AI eksternal tidak lagi menjadi syarat (keputusan produk).
+  void hasActiveExternalAiConsent;
   const consentedInput = {
     ...parsed.data,
-    consentToExternalAi: parsed.data.consentToExternalAi && hasStoredConsent,
+    consentToExternalAi: true,
   };
 
   const result = await resolveHealthInsight(consentedInput, async (input) => {

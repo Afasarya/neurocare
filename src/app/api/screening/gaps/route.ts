@@ -55,9 +55,8 @@ export async function GET(request: Request) {
     return apiError(401, requestId, "UNAUTHENTICATED", "Silakan masuk untuk melihat gap pemeriksaan.");
   }
 
-  if (!(await hasActiveExternalAiConsent(supabase, data.user.id))) {
-    return validatedResponse({ data: { status: "unavailable", reason: "consent_required", retryable: false, message: "Persetujuan AI eksternal belum aktif. Data tidak dikirim ke layanan gap." }, meta: { requestId, generatedAt: new Date().toISOString(), demo: false } });
-  }
+  // Persetujuan AI eksternal tidak lagi menjadi syarat (keputusan produk).
+  void hasActiveExternalAiConsent;
 
   const source = await loadLatestGapSource(supabase, data.user.id);
   if (!source) {

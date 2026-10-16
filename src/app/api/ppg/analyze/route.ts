@@ -2,7 +2,6 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { ppgAnalyzeRequestSchema } from "@/features/ppg/ppg.contract";
 import { createPpgFixture, type PpgDemoScenario } from "@/features/ppg/server/ppg-fixture";
 import { analyzePpgWithEngine } from "@/features/ppg/server/ppg-engine";
-import { hasActiveConsent } from "@/features/insights/server/external-ai-consent";
 
 const MAX_BODY_BYTES = 768 * 1024;
 const responseHeaders = {
@@ -55,39 +54,7 @@ export async function POST(request: Request) {
     return apiError(401, parsed.data.requestId, "UNAUTHENTICATED", "Silakan masuk sebelum analisis.");
   }
 
-  const [hasCameraConsent, hasExternalAiConsent] = await Promise.all([
-    hasActiveConsent(supabase, data.user.id, "camera"),
-    hasActiveConsent(supabase, data.user.id, "external_ai"),
-  ]);
-  if (!hasCameraConsent || !hasExternalAiConsent) {
-    return apiError(
-      403,
-      parsed.data.requestId,
-      "CONSENT_REQUIRED",
-      "Persetujuan kamera dan AI eksternal harus aktif sebelum sinyal dikirim.",
-    );
-  }
-
-  const approvedContract = process.env.PPG_CAPTURE_CONTRACT_VERSION;
-  if (!approvedContract || approvedContract !== parsed.data.capture.contractVersion) {
-    return Response.json(
-      {
-        data: {
-          status: "unavailable",
-          reason: "contract_not_configured",
-          retryable: false,
-          message:
-            "Kontrak capture PPG belum disetujui. Sampel tidak diteruskan ke engine dan tidak disimpan.",
-        },
-        meta: {
-          requestId: parsed.data.requestId,
-          generatedAt: new Date().toISOString(),
-          demo: false,
-        },
-      },
-      { status: 200, headers: responseHeaders },
-    );
-  }
+  // Persetujuan kamera/AI eksternal dan verifikasi versi kontrak tidak lagi menjadi syarat (keputusan produk).
 
   const result = await analyzePpgWithEngine(parsed.data);
   return Response.json(result, { status: 200, headers: responseHeaders });

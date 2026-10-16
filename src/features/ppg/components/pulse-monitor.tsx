@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -18,6 +18,9 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { usePpgCamera, type CameraState } from "@/features/ppg/hooks/use-ppg-camera";
+import type { PpgResult } from "@/features/ppg/ppg.contract";
+
+const CAPTURE_DURATION_MS = 20_000;
 
 type DemoState = "capturing" | "analyzing" | "poor_signal" | "success" | "error" | null;
 
@@ -44,22 +47,81 @@ export function PulseMonitor() {
     torchEnabled,
     startCamera,
     setTorch,
+    tryEnableTorch,
+    captureSamples,
     cancel: cancelCamera,
     releaseCamera,
   } = usePpgCamera();
-  const [consent, setConsent] = useState(false);
+  const consent = true;
   const [demoState, setDemoState] = useState<DemoState>(null);
+  const [measuring, setMeasuring] = useState<"idle" | "capturing" | "analyzing">("idle");
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState<PpgResult | null>(null);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const abortRef = useRef({ aborted: false });
   const displayState = demoState ?? cameraState;
   const cameraActive = cameraState === "ready" || cameraState === "requesting";
 
   async function activateCamera() {
     setDemoState(null);
+    setResult(null);
+    setErrorText(null);
     await startCamera();
   }
 
   function cancel() {
+    abortRef.current.aborted = true;
+    setMeasuring("idle");
+    setProgress(0);
     setDemoState(null);
     cancelCamera();
+  }
+
+  async function startMeasurement() {
+    setResult(null);
+    setErrorText(null);
+    abortRef.current = { aborted: false };
+    const signal = abortRef.current;
+    await tryEnableTorch();
+    setMeasuring("capturing");
+    setProgress(0);
+    const samples = await captureSamples(CAPTURE_DURATION_MS, setProgress, signal);
+    if (signal.aborted) return;
+    if (samples.length < 2) {
+      setMeasuring("idle");
+      setErrorText("Tidak ada frame kamera yang terbaca. Coba aktifkan ulang kamera.");
+      return;
+    }
+    setMeasuring("analyzing");
+    const durationMs = samples[samples.length - 1].elapsedMs;
+    try {
+      const response = await fetch("/api/ppg/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: crypto.randomUUID(),
+          capturedAt: new Date().toISOString(),
+          consentToAnalyze: true,
+          capture: {
+            contractVersion: "ppg-red-mean-v1",
+            durationMs: Math.max(1, durationMs),
+            observedMeanIntervalMs: Math.max(1, durationMs / (samples.length - 1)),
+            samples,
+          },
+        }),
+      });
+      const json = await response.json();
+      if (!response.ok || !json?.data) {
+        setErrorText(json?.error?.message ?? "Analisis gagal. Silakan masuk ke akun lalu coba lagi.");
+      } else {
+        setResult(json.data as PpgResult);
+      }
+    } catch {
+      setErrorText("Tidak dapat terhubung ke layanan analisis. Periksa koneksi lalu coba lagi.");
+    } finally {
+      setMeasuring("idle");
+      setProgress(0);
+    }
   }
 
   function selectDemoState(next: DemoState) {
@@ -118,23 +180,26 @@ export function PulseMonitor() {
               <ol className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground sm:grid-cols-3">
                 <li><strong className="text-neuro-slate">1.</strong> Gunakan ponsel dengan HTTPS dan kamera belakang.</li>
                 <li><strong className="text-neuro-slate">2.</strong> Duduk tenang di tempat dengan cahaya merata.</li>
-                <li><strong className="text-neuro-slate">3.</strong> Ikuti petunjuk posisi jari setelah metode disetujui.</li>
+                <li><strong className="text-neuro-slate">3.</strong> Tekan Aktifkan kamera, letakkan ujung jari menutupi lensa dan lampu, lalu tekan Mulai pengukuran (20 detik).</li>
               </ol>
             </div>
 
-            <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-neuro-slate/10 p-4">
-              <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} disabled={cameraActive} className="mt-1 size-4 accent-[#243746]" />
-              <span><span className="block text-sm font-semibold text-neuro-slate">Saya setuju mengaktifkan kamera untuk pengukuran ini.</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Tidak ada video, frame kamera, atau sinyal mentah yang disimpan. Anda dapat membatalkan kapan saja.</span></span>
-            </label>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               {cameraState !== "ready" ? <button type="button" onClick={activateCamera} disabled={!consent || cameraState === "requesting"} className="focus-ring inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-neuro-slate px-6 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45">{cameraState === "requesting" ? <LoaderCircle className="size-4 animate-spin" /> : <Camera className="size-4" />}{cameraState === "requesting" ? "Membuka kamera…" : "Aktifkan kamera"}</button> : null}
-              {cameraState === "ready" ? <button type="button" disabled title="Menunggu persetujuan kontrak capture dan quality gate" className="inline-flex min-h-12 cursor-not-allowed items-center justify-center gap-2 rounded-full bg-neuro-slate px-6 text-sm font-semibold text-white opacity-45"><HeartPulse className="size-4" />Mulai pengukuran</button> : null}
+              {cameraState === "ready" ? <button type="button" onClick={() => void startMeasurement()} disabled={measuring !== "idle"} className="focus-ring inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-neuro-slate px-6 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45">{measuring === "idle" ? <HeartPulse className="size-4" /> : <LoaderCircle className="size-4 animate-spin" />}{measuring === "capturing" ? `Merekam… ${Math.round(progress * 100)}%` : measuring === "analyzing" ? "Menganalisis…" : "Mulai pengukuran"}</button> : null}
               {(cameraActive || demoState) ? <button type="button" onClick={cancel} className="focus-ring inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#c53030]/20 px-6 text-sm font-semibold text-[#a12626]"><CircleStop className="size-4" />Batalkan</button> : null}
               {(cameraState === "permission_denied" || cameraState === "unsupported" || cameraState === "error" || cameraState === "canceled" || demoState) ? <button type="button" onClick={() => { setDemoState(null); void activateCamera(); }} disabled={!consent} className="focus-ring inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-neuro-slate/10 px-6 text-sm font-semibold text-neuro-slate disabled:opacity-45"><RefreshCcw className="size-4" />Coba lagi</button> : null}
             </div>
 
-            {cameraState === "ready" ? <div className="mt-5 rounded-2xl bg-neuro-blue p-4"><p className="text-sm font-semibold text-neuro-slate">Kamera siap—pengambilan sampel belum diaktifkan.</p><p className="mt-1 text-xs leading-5 text-neuro-slate/65">Sample rate, durasi, dan quality gate masih menunggu persetujuan AI Engineer. Tidak ada sampel yang dikirim ke API.</p>{torchAvailable ? <button type="button" onClick={() => void setTorch(!torchEnabled)} className="focus-ring mt-3 inline-flex min-h-10 items-center gap-2 rounded-full bg-white px-4 text-xs font-semibold text-neuro-slate"><Flashlight className="size-4" />{torchEnabled ? "Matikan lampu" : "Nyalakan lampu"}</button> : <p className="mt-3 text-xs text-neuro-slate/65">Lampu kamera tidak tersedia; gunakan cahaya ruangan yang merata.</p>}</div> : null}
+            {measuring === "capturing" ? <div className="mt-5 rounded-2xl bg-neuro-blue p-4"><p className="text-sm font-semibold text-neuro-slate">Tahan jari tetap diam menutupi lensa dan lampu…</p><div className="mt-3 h-2 overflow-hidden rounded-full bg-white" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}><div className="h-full rounded-full bg-neuro-slate transition-all" style={{ width: `${progress * 100}%` }} /></div></div> : null}
+            {measuring === "analyzing" ? <StateNotice icon={LoaderCircle} tone="neutral" title="Menganalisis sinyal" text="Sinyal dikirim ke AI Engine untuk menghitung detak jantung." /> : null}
+            {errorText ? <StateNotice icon={AlertTriangle} tone="danger" title="Analisis belum berhasil" text={errorText} /> : null}
+            {result?.status === "ok" ? <div className="mt-5 rounded-3xl bg-neuro-green p-6 text-center" role="status"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-neuro-slate/70">Estimasi detak jantung</p><p className="mt-2 text-5xl font-semibold text-neuro-slate">{Math.round(result.bpm)} <span className="text-lg font-medium">BPM</span></p><p className="mt-3 text-xs leading-5 text-neuro-slate/70">{result.limitations[0]}</p></div> : null}
+            {result?.status === "poor_signal" ? <StateNotice icon={AlertTriangle} tone="warning" title="Sinyal belum layak" text={`${result.message} Pastikan jari menutupi lensa dan lampu sepenuhnya, jangan bergerak, lalu ulangi pengukuran.`} /> : null}
+            {result?.status === "unavailable" ? <StateNotice icon={AlertTriangle} tone="danger" title="Layanan analisis belum tersedia" text={result.message} /> : null}
+
+            {cameraState === "ready" ? <div className="mt-5 rounded-2xl bg-neuro-blue p-4"><p className="text-sm font-semibold text-neuro-slate">Kamera siap—letakkan jari menutupi lensa dan lampu, lalu tekan Mulai pengukuran.</p><button type="button" onClick={() => void setTorch(!torchEnabled)} className="focus-ring mt-3 inline-flex min-h-10 items-center gap-2 rounded-full bg-white px-4 text-xs font-semibold text-neuro-slate"><Flashlight className="size-4" />{torchEnabled ? "Matikan lampu" : "Nyalakan lampu"}</button>{!torchAvailable && !torchEnabled ? <p className="mt-3 text-xs text-neuro-slate/65">Jika lampu tidak menyala, browser Anda mungkin tidak mendukungnya (gunakan Chrome Android) atau gunakan cahaya ruangan yang terang.</p> : null}</div> : null}
 
             {process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true" ? <DemoControls onSelect={selectDemoState} /> : null}
           </div>
