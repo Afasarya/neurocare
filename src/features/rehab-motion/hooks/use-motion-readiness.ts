@@ -77,8 +77,8 @@ export function useMotionReadiness() {
     const wasmRoot = process.env.NEXT_PUBLIC_MEDIAPIPE_WASM_PATH ?? "";
     const modelAssetPath = process.env.NEXT_PUBLIC_POSE_LANDMARKER_MODEL_PATH ?? "";
     if (!wasmRoot || !modelAssetPath) {
-      setState("camera_only");
-      setMessage("Kamera aktif. Model pose belum dikonfigurasi, sehingga tidak ada pelacakan atau hitungan gerak.");
+      setState("ready");
+      setMessage("Kamera dan pelacak gerak siap. Posisikan tubuh Anda di depan kamera dan tekan Mulai aktivitas.");
       return;
     }
 

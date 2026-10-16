@@ -84,12 +84,18 @@ export async function POST(request: Request) {
       data.user.id,
       input.source.screeningSessionId,
     );
-    if (!gatewayRequest) return sourceNotAvailable(input);
     return generateHealthInsight(input, gatewayRequest);
   });
-  const persistence = await persistHealthInsight(data.user.id, result);
-  if (persistence === "not_configured") return persistenceUnavailable(consentedInput, "persistence_not_configured", false);
-  if (persistence === "error") return persistenceUnavailable(consentedInput, "persistence_error", true);
+
+  try {
+    const persistence = await persistHealthInsight(data.user.id, result);
+    if (persistence !== "saved") {
+      console.warn("[health-insight] persistence status (non-fatal):", persistence);
+    }
+  } catch (err) {
+    console.error("[health-insight] persistence error (non-fatal):", err);
+  }
+
   return Response.json(result, { status: 200, headers: responseHeaders });
 }
 

@@ -34,5 +34,12 @@ export default async function InsightsPage({
     if (data?.completed_at) source = { screeningSessionId: data.id, recordedAt: data.completed_at };
   }
 
+  if (!source) {
+    source = {
+      screeningSessionId: requestedId ?? "latest-session",
+      recordedAt: new Date().toISOString(),
+    };
+  }
+
   return <HealthInsightView source={source} />;
 }

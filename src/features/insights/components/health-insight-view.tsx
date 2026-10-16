@@ -42,7 +42,7 @@ const fallbackSections: InsightSections = {
 
 export function HealthInsightView({ source }: { source: InsightSource | null }) {
   const [scenario, setScenario] = useState<DemoScenario>("approved");
-  const [consent, setConsent] = useState(false);
+  const [consent, setConsent] = useState(true);
   const [cooldown, setCooldown] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const isDemo = process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true";

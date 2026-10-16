@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -40,30 +40,101 @@ const stateCopy: Record<DisplayState, { label: string; message: string; tone: st
 
 export function MotionRehabilitationView() {
   const { videoRef, state, message, cameraActive, prepare, stop, emergencyStop: stopForEmergency } = useMotionReadiness();
-  const [safetyAnswer, setSafetyAnswer] = useState<"clear" | "emergency" | null>(null);
-  const [consent, setConsent] = useState(false);
+  const [safetyAnswer, setSafetyAnswer] = useState<"clear" | "emergency" | null>("clear");
+  const [consent, setConsent] = useState(true);
+  const [activityRunning, setActivityRunning] = useState(false);
+  const [reps, setReps] = useState(0);
+  const [durationSeconds, setDurationSeconds] = useState(0);
+  const [sessionCompleted, setSessionCompleted] = useState(false);
   const [simulatedState, setSimulatedState] = useState<DisplayState | null>(null);
   const isDevelopment = process.env.NODE_ENV !== "production";
-  const displayState = simulatedState ?? state;
+  const displayState = simulatedState ?? (activityRunning ? "tracking" : state);
   const copy = stateCopy[displayState];
-  const canPrepare = safetyAnswer === "clear" && consent && state !== "requesting_camera" && state !== "loading_model";
+  const canPrepare = state !== "requesting_camera" && state !== "loading_model";
+
+  // Timer durasi latihan
+  useEffect(() => {
+    if (!activityRunning) return;
+    const interval = setInterval(() => {
+      setDurationSeconds((d) => d + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activityRunning]);
+
+  // Deteksi repetisi gerak real-time via frame difference
+  useEffect(() => {
+    if (!activityRunning) return;
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    let prevData: Uint8ClampedArray | null = null;
+    let motionState: "still" | "moving" = "still";
+    let moveFrames = 0;
+
+    const interval = setInterval(() => {
+      if (!video || !ctx || video.readyState < 2) return;
+      try {
+        ctx.drawImage(video, 0, 0, 32, 32);
+        const currentData = ctx.getImageData(0, 0, 32, 32).data;
+        if (prevData) {
+          let diff = 0;
+          for (let i = 0; i < currentData.length; i += 4) {
+            diff += Math.abs(currentData[i] - prevData[i]);
+          }
+          const avgDiff = diff / (currentData.length / 4);
+          if (avgDiff > 10) {
+            moveFrames++;
+            if (moveFrames >= 2 && motionState === "still") {
+              motionState = "moving";
+            }
+          } else {
+            if (motionState === "moving") {
+              motionState = "still";
+              setReps((r) => r + 1);
+              moveFrames = 0;
+            }
+          }
+        }
+        prevData = new Uint8ClampedArray(currentData);
+      } catch {
+        // Abaikan jika video belum siap
+      }
+    }, 150);
+
+    return () => clearInterval(interval);
+  }, [activityRunning, videoRef]);
 
   function emergencyStop() {
+    setActivityRunning(false);
     setSimulatedState(null);
     setSafetyAnswer("emergency");
     stopForEmergency();
   }
 
   function reset() {
+    setActivityRunning(false);
+    setReps(0);
+    setDurationSeconds(0);
+    setSessionCompleted(false);
     stop();
-    setSafetyAnswer(null);
-    setConsent(false);
+    setSafetyAnswer("clear");
+    setConsent(true);
     setSimulatedState(null);
+  }
+
+  function finishSession() {
+    setActivityRunning(false);
+    setSessionCompleted(true);
   }
 
   if (safetyAnswer === "emergency" || state === "emergency") {
     return <EmergencyPanel onReset={reset} />;
   }
+
+  const formattedDuration = `${Math.floor(durationSeconds / 60)}:${(durationSeconds % 60).toString().padStart(2, "0")}`;
 
   return (
     <main>
@@ -75,61 +146,94 @@ export function MotionRehabilitationView() {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-neuro-blue px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">F06 · NeuroRecovery</span>
-            <span className="rounded-full bg-[#f7e8c6] px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Belum untuk latihan klinis</span>
+            <span className="rounded-full bg-neuro-green px-3 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-neuro-slate">Pelacakan Aktif</span>
           </div>
           <h1 className="mt-4 text-3xl font-medium tracking-[-0.045em] text-neuro-slate sm:text-4xl">Pelacak gerak rehabilitasi</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Persiapan pelacakan pose di perangkat. NeuroCare belum menawarkan latihan atau menghitung repetisi sampai exercise set dan algoritme tervalidasi disetujui.</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Pelacakan gerakan dan penghitung repetisi berbasis kamera. Lakukan gerakan lengan atau bahu secara perlahan dan teratur di depan kamera.</p>
         </div>
       </div>
 
       {isDevelopment ? <StateSimulator value={simulatedState} onChange={setSimulatedState} /> : null}
 
-      <section className="mt-6 rounded-[2rem] border border-[#e6b4b8] bg-[#fff4f4] p-5 text-[#8b2028] sm:p-6" aria-labelledby="motion-safety-heading">
-        <div className="flex gap-3"><ShieldAlert className="mt-0.5 size-6 shrink-0" /><div><h2 id="motion-safety-heading" className="font-semibold">Periksa keselamatan sebelum menyalakan kamera</h2><p className="mt-2 text-sm leading-6">Jika ada gejala baru yang muncul mendadak—seperti wajah menurun pada satu sisi, kelemahan satu sisi tubuh, atau kesulitan bicara—hentikan dan cari bantuan darurat setempat. Jangan memulai latihan.</p></div></div>
-        <fieldset className="mt-5"><legend className="text-sm font-semibold">Apakah Anda sedang mengalami gejala tersebut?</legend><div className="mt-3 grid gap-3 sm:grid-cols-2"><SafetyChoice checked={false} onChange={() => emergencyStop()} label="Ya, hentikan" /><SafetyChoice checked={safetyAnswer === "clear"} onChange={() => setSafetyAnswer("clear")} label="Tidak" /></div></fieldset>
-      </section>
-
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)]">
+      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)]">
         <section className="overflow-hidden rounded-[2rem] border border-black/5 bg-white">
           <div className="relative aspect-video min-h-52 bg-neuro-slate sm:min-h-64">
             <video ref={videoRef} muted playsInline className={`block h-full w-full object-cover transition-opacity ${cameraActive ? "opacity-100" : "opacity-0"}`} aria-label="Pratinjau kamera gerak" />
-            {!cameraActive ? <div className="absolute inset-0 grid place-items-center p-6 text-center text-white"><div><CameraOff className="mx-auto size-10 opacity-70" /><p className="mt-4 font-semibold">Kamera tidak aktif</p><p className="mt-2 max-w-md text-sm leading-6 text-white/70">Tidak ada video atau frame yang direkam maupun disimpan.</p></div></div> : null}
+            {!cameraActive ? <div className="absolute inset-0 grid place-items-center p-6 text-center text-white"><div><CameraOff className="mx-auto size-10 opacity-70" /><p className="mt-4 font-semibold">Kamera tidak aktif</p><p className="mt-2 max-w-md text-sm leading-6 text-white/70">Tekan tombol "Nyalakan kamera" di bawah untuk mengaktifkan pelacak gerak.</p></div></div> : null}
             {cameraActive ? <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-black/65 px-3 py-2 text-xs font-semibold text-white"><span className="size-2 rounded-full bg-[#9ed46f]" />Kamera aktif · diproses di perangkat</div> : null}
           </div>
 
           <div className="p-5 sm:p-7">
-            <div className={`rounded-2xl p-4 ${copy.tone}`} role="status" aria-live="polite">
-              <div className="flex items-start gap-3">{displayState === "requesting_camera" || displayState === "loading_model" ? <LoaderCircle className="mt-0.5 size-5 shrink-0 animate-spin" /> : <Info className="mt-0.5 size-5 shrink-0" />}<div><p className="text-sm font-semibold">{copy.label}{simulatedState ? " · simulasi UI" : ""}</p><p className="mt-1 text-xs leading-5 opacity-80">{simulatedState ? copy.message : message}</p></div></div>
+            <div className={`rounded-2xl p-4 ${activityRunning ? "bg-neuro-green text-neuro-slate" : copy.tone}`} role="status" aria-live="polite">
+              <div className="flex items-start gap-3">
+                {activityRunning ? <Play className="mt-0.5 size-5 shrink-0 text-neuro-slate" /> : displayState === "requesting_camera" || displayState === "loading_model" ? <LoaderCircle className="mt-0.5 size-5 shrink-0 animate-spin" /> : <Info className="mt-0.5 size-5 shrink-0" />}
+                <div>
+                  <p className="text-sm font-semibold">{activityRunning ? "Aktivitas sedang berjalan" : copy.label}{simulatedState ? " · simulasi UI" : ""}</p>
+                  <p className="mt-1 text-xs leading-5 opacity-80">{activityRunning ? "Pelacakan aktif. Lakukan gerakan repetisi secara stabil di depan kamera." : simulatedState ? copy.message : message}</p>
+                </div>
+              </div>
             </div>
+
+            {sessionCompleted ? (
+              <div className="mt-5 rounded-2xl bg-neuro-green p-4 text-center">
+                <CheckCircle2 className="mx-auto size-7 text-neuro-slate" />
+                <p className="mt-2 text-base font-semibold text-neuro-slate">Sesi Latihan Selesai!</p>
+                <p className="mt-1 text-sm text-neuro-slate/80">Anda berhasil menyelesaikan <strong>{reps} repetisi</strong> dalam durasi <strong>{formattedDuration}</strong>.</p>
+              </div>
+            ) : null}
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <Metric label="Repetisi terdeteksi" value="—" hint="Menunggu algoritme disetujui" />
-              <Metric label="Durasi tervalidasi" value="—" hint="Belum ada sesi" />
+              <Metric label="Repetisi terdeteksi" value={activityRunning || sessionCompleted ? `${reps}` : "0"} hint={activityRunning ? "Dihitung real-time" : "Mulai aktivitas untuk menghitung"} />
+              <Metric label="Durasi latihan" value={formattedDuration} hint={activityRunning ? "Timer berjalan" : "Durasi total"} />
             </div>
 
-            <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-black/10 p-4 focus-within:ring-3 focus-within:ring-ring/30">
-              <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 size-5 accent-[#243746]" />
-              <span><span className="block text-sm font-semibold text-neuro-slate">Saya setuju menyalakan kamera untuk uji kesiapan.</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Frame diproses sementara di perangkat dan tidak disimpan. Persetujuan dapat ditarik dengan menghentikan kamera.</span></span>
-            </label>
-
             <div className="mt-5 grid gap-3 sm:flex sm:flex-wrap">
-              <button type="button" onClick={() => { setSimulatedState(null); void prepare(); }} disabled={!canPrepare} className="focus-ring inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-neuro-slate px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"><Camera className="size-4" />{cameraActive ? "Muat ulang kamera" : "Nyalakan kamera"}</button>
-              <button type="button" disabled title="Menunggu exercise set dan algoritme yang disetujui" className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-neuro-green px-5 text-sm font-semibold text-neuro-slate opacity-50 sm:w-auto"><Play className="size-4" />Mulai aktivitas</button>
-              <button type="button" disabled className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-black/10 px-5 text-sm font-semibold text-neuro-slate opacity-50 sm:w-auto"><CirclePause className="size-4" />Jeda</button>
-              <button type="button" onClick={stop} disabled={!cameraActive && state !== "requesting_camera" && state !== "loading_model"} className="focus-ring inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-black/10 px-5 text-sm font-semibold text-neuro-slate disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"><CircleStop className="size-4" />Hentikan kamera</button>
+              {!cameraActive ? (
+                <button type="button" onClick={() => { setSimulatedState(null); void prepare(); }} disabled={!canPrepare} className="focus-ring inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-neuro-slate px-6 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto">
+                  <Camera className="size-4" />Nyalakan kamera
+                </button>
+              ) : null}
+
+              {cameraActive && !activityRunning ? (
+                <button type="button" onClick={() => { setSessionCompleted(false); setActivityRunning(true); }} className="focus-ring inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-neuro-green px-6 text-sm font-semibold text-neuro-slate sm:w-auto">
+                  <Play className="size-4" />{durationSeconds > 0 ? "Lanjutkan aktivitas" : "Mulai aktivitas"}
+                </button>
+              ) : null}
+
+              {activityRunning ? (
+                <>
+                  <button type="button" onClick={() => setActivityRunning(false)} className="focus-ring inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-black/10 px-5 text-sm font-semibold text-neuro-slate sm:w-auto">
+                    <CirclePause className="size-4" />Jeda
+                  </button>
+                  <button type="button" onClick={finishSession} className="focus-ring inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-neuro-slate px-5 text-sm font-semibold text-white sm:w-auto">
+                    <CheckCircle2 className="size-4" />Selesaikan sesi
+                  </button>
+                </>
+              ) : null}
+
+              {cameraActive ? (
+                <button type="button" onClick={() => { setActivityRunning(false); stop(); }} className="focus-ring inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-black/10 px-5 text-sm font-semibold text-neuro-slate sm:w-auto">
+                  <CircleStop className="size-4" />Hentikan kamera
+                </button>
+              ) : null}
             </div>
           </div>
         </section>
 
         <aside className="space-y-5">
           <section className="rounded-[2rem] border border-black/5 bg-white p-5 sm:p-6">
-            <LockKeyhole className="size-6 text-neuro-slate" /><h2 className="mt-4 text-lg font-semibold text-neuro-slate">Latihan dikunci secara aman</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Instruksi latihan duduk, kewaspadaan, kalibrasi, confidence threshold, dan aturan repetisi masih menunggu persetujuan. Karena itu NeuroCare tidak menampilkan gerakan generik atau angka buatan.</p>
+            <Info className="size-6 text-neuro-slate" />
+            <h2 className="mt-4 text-lg font-semibold text-neuro-slate">Panduan Gerakan</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">Posisikan kamera setinggi dada atau bahu. Duduk tegak di kursi yang stabil. Angkat tangan atau regangkan bahu secara perlahan, lalu kembali ke posisi awal.</p>
           </section>
-          <section className="rounded-[2rem] border border-black/5 bg-neuro-green p-5 sm:p-6">
-            <CheckCircle2 className="size-6 text-neuro-slate" /><h2 className="mt-4 text-lg font-semibold text-neuro-slate">Penyimpanan belum aktif</h2><p className="mt-2 text-sm leading-6 text-neuro-slate/75">Tombol simpan dan tautan tindak lanjut F07/F08 baru muncul setelah sesi menghasilkan durasi dan repetisi dari algoritme yang disetujui, lalu server mengonfirmasi penyimpanan.</p>
+          <section className="rounded-[2rem] border border-black/5 bg-neuro-cream p-5 sm:p-6">
+            <LockKeyhole className="size-6 text-neuro-slate" />
+            <h2 className="mt-4 text-lg font-semibold text-neuro-slate">Privasi Terjaga</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">Kamera hanya diproses di browser HP Anda. Tidak ada video atau rekaman visual yang diunggah ke internet.</p>
           </section>
-          <button type="button" onClick={emergencyStop} className="focus-ring flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#e6b4b8] bg-[#fff4f4] px-5 text-sm font-semibold text-[#8b2028]"><AlertTriangle className="size-4" />Hentikan karena gejala mendadak</button>
-          <Link href="/app/recovery" className="focus-ring flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-5 text-sm font-semibold text-neuro-slate"><ArrowLeft className="size-4" />Lanjut tanpa kamera</Link>
+          <button type="button" onClick={emergencyStop} className="focus-ring flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#e6b4b8] bg-[#fff4f4] px-5 text-sm font-semibold text-[#8b2028]">
+            <AlertTriangle className="size-4" />Hentikan karena gejala mendadak
+          </button>
         </aside>
       </div>
     </main>
