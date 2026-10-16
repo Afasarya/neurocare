@@ -4,6 +4,7 @@
 
 Aplikasi ini menggabungkan integrasi komputasi klinis **WHO Cardiovascular Disease (CVD) Risk Engine**, **Photoplethysmography (PPG) Camera Pulse Monitoring**, **Computer Vision Motion Tracking**, dan **Generative AI Health Insights** yang terhubung langsung ke layanan microservices Cloud Run.
 
+##Untuk REPO AI SERVICE ENGINE BISA CEK PADA : https://github.com/zelphyx/AI-Neurocare
 ---
 
 ## 🔑 Akun Demo & Pengujian (Testing Credentials)
