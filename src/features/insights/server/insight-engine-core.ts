@@ -1,43 +1,48 @@
 import type { HealthInsightRequest, HealthInsightResponse } from "../health-insight.contract";
 import { createSafeTemplate } from "./insight-fixture";
-import { parseSafeAiInsight } from "./insight-safety";
-
-const PROVIDER_TIMEOUT_MS = 10_000;
+import {
+  healthInsightGatewayResponseSchema,
+  mapHealthInsightGatewayResponse,
+  type HealthInsightGatewayRequest,
+} from "./health-insight-gateway";
+import { AiGatewayError, requestAiGatewayWithConfig } from "@/lib/ai-gateway/client-core";
 
 export async function requestHealthInsightProvider(
   input: HealthInsightRequest,
+  gatewayRequest?: HealthInsightGatewayRequest,
 ): Promise<HealthInsightResponse> {
-  const endpoint = process.env.AI_SERVICE_URL;
-  if (!endpoint) return unavailable(input, "provider_not_configured", false);
-
-  const headers = new Headers({
-    "Content-Type": "application/json",
-    Accept: "application/json",
-    "X-Request-Id": input.requestId,
-  });
-  const apiKey = process.env.AI_SERVICE_API_KEY;
-  if (apiKey) headers.set("Authorization", `Bearer ${apiKey}`);
+  if (!gatewayRequest) return unavailable(input, "provider_not_configured", false);
 
   try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(input),
-      cache: "no-store",
-      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
-    });
-    if (response.status === 429) return unavailable(input, "rate_limited", true);
-    if (!response.ok) return unavailable(input, "provider_error", response.status >= 500);
-
-    const payload: unknown = await response.json();
-    const parsed = parseSafeAiInsight(payload, input);
-    if (!parsed) return createSafeTemplate(input, "invalid_ai_response");
-    return parsed;
+    const response = await requestAiGatewayWithConfig(
+      {
+        baseUrl: process.env.AI_GATEWAY_BASE_URL ?? "",
+        apiKey: process.env.AI_GATEWAY_API_KEY ?? "",
+        timeoutMs: 10_000,
+      },
+      {
+        path: "/api/v1/insights/health",
+        body: gatewayRequest,
+        requestId: input.requestId,
+        responseSchema: healthInsightGatewayResponseSchema,
+      },
+    );
+    return mapHealthInsightGatewayResponse(input, gatewayRequest, response)
+      ?? createSafeTemplate(input, "invalid_ai_response");
   } catch (error) {
-    if (error instanceof DOMException && error.name === "TimeoutError") {
+    if (!(error instanceof AiGatewayError)) {
+      return unavailable(input, "provider_error", true);
+    }
+    if (error.kind === "not_configured") {
+      return unavailable(input, "provider_not_configured", false);
+    }
+    if (error.kind === "timeout") {
       return unavailable(input, "timeout", true);
     }
-    return unavailable(input, "provider_error", true);
+    if (error.kind === "invalid_response") {
+      return createSafeTemplate(input, "invalid_ai_response");
+    }
+    return unavailable(input, "provider_error", error.retryable);
   }
 }
 

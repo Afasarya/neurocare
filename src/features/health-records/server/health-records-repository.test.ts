@@ -229,16 +229,37 @@ describe("health-records-repository", () => {
           }),
         };
       }
+      if (table === "insight_records") {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: () => ({
+                limit: () => Promise.resolve({
+                  data: [{
+                    id: "insight-1",
+                    screening_session_id: "screening-1",
+                    generated_by: "ai",
+                    model_version: "provider/1.0.0",
+                    generated_at: "2026-10-16T11:00:00Z",
+                  }],
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        };
+      }
       return {};
     });
 
     const mockSupabase = { from: mockFrom } as unknown as DbClient;
     const events = await listTimelineEvents(mockSupabase, userId);
 
-    expect(events).toHaveLength(2);
+    expect(events).toHaveLength(3);
     // Chronologically sorted descending (latest first)
     expect(events[0].id).toBe("action-item:act-1");
-    expect(events[1].id).toBe("measurement:m-1");
+    expect(events[1].id).toBe("insight:insight-1");
+    expect(events[2].id).toBe("measurement:m-1");
   });
 
   it("lists action items for current user", async () => {

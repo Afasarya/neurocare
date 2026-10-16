@@ -1,7 +1,10 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { screeningAnalyzeResponseSchema } from "@/features/screening/screening.contract";
 import { screeningServerSchema } from "@/features/screening/screening.server-schema";
 import { createSafeScreeningFixture } from "@/features/screening/server/screening-fixture";
 import { analyzeWithScreeningEngine } from "@/features/screening/server/screening-engine";
+import { hasActiveExternalAiConsent } from "@/features/insights/server/external-ai-consent";
 
 const MAX_BODY_BYTES = 16 * 1024;
 const responseHeaders = {
@@ -68,12 +71,25 @@ export async function POST(request: Request) {
     return apiError(401, parsed.data.requestId, "UNAUTHENTICATED", "Silakan masuk sebelum mengirim skrining.");
   }
 
-  const result = await analyzeWithScreeningEngine(parsed.data);
+  const hasExternalAiConsent = await hasActiveExternalAiConsent(supabase, data.user.id);
+  const result = await analyzeWithScreeningEngine(parsed.data, hasExternalAiConsent);
   const okResult = result.data.status === "ok" ? result.data : null;
 
-  // Persist session to database (ignoring non-critical errors so response is never blocked)
-  try {
-    await supabase.from("screening_sessions").upsert({
+  const admin = createAdminSupabaseClient();
+  if (okResult && !admin) {
+    return apiError(
+      503,
+      parsed.data.requestId,
+      "PERSISTENCE_NOT_CONFIGURED",
+      "Hasil tervalidasi belum dapat disimpan. Tidak ada konfirmasi penyimpanan yang dibuat.",
+      true,
+    );
+  }
+
+  if (admin) {
+    const { data: storedSession, error: storageError } = await admin
+      .from("screening_sessions")
+      .upsert({
       user_id: data.user.id,
       operation_id: parsed.data.requestId,
       pathway: "neuroprevent",
@@ -87,9 +103,29 @@ export async function POST(request: Request) {
       source_version: okResult?.source.version ?? null,
       engine_version: okResult?.source.engineVersion ?? null,
       completed_at: new Date().toISOString(),
-    }, { onConflict: "user_id,operation_id" });
-  } catch (dbError) {
-    console.error("Non-blocking failure persisting screening session:", dbError);
+      }, { onConflict: "user_id,operation_id" })
+      .select("id")
+      .single();
+
+    if (storageError || !storedSession) {
+      return apiError(
+        503,
+        parsed.data.requestId,
+        "PERSISTENCE_FAILED",
+        "Hasil belum dapat disimpan. Silakan coba lagi tanpa mengubah data.",
+        true,
+      );
+    }
+
+    if (okResult) {
+      return Response.json(
+        screeningAnalyzeResponseSchema.parse({
+          ...result,
+          data: { ...okResult, recordId: storedSession.id },
+        }),
+        { status: 200, headers: responseHeaders },
+      );
+    }
   }
 
   return Response.json(result, { status: 200, headers: responseHeaders });

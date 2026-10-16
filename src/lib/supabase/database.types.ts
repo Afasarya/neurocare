@@ -53,7 +53,7 @@ export type Database = {
       screening_gaps: {
         Row: { id: string; user_id: string; screening_session_id: string; gap_type: string; status: string; title: string; reason: string; related_measurement: string; supporting_fact_label: string; supporting_fact_recorded_at: string | null; applicability: string; is_stale: boolean; rule_source_label: string; rule_version: string; evaluated_at: string; action_key: string | null; created_at: string; updated_at: string };
         Insert: { id?: string; user_id: string; screening_session_id: string; gap_type: string; status: string; title: string; reason: string; related_measurement: string; supporting_fact_label: string; supporting_fact_recorded_at?: string | null; applicability: string; is_stale?: boolean; rule_source_label: string; rule_version: string; evaluated_at?: string; action_key?: string | null; created_at?: string; updated_at?: string };
-        Update: never;
+        Update: Partial<Database["public"]["Tables"]["screening_gaps"]["Insert"]>;
         Relationships: [];
       };
       screening_sessions: {

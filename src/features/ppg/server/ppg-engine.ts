@@ -1,46 +1,41 @@
+import type { PpgAnalyzeRequest, PpgAnalyzeResponse } from "@/features/ppg/ppg.contract";
 import {
-  ppgAnalyzeResponseSchema,
-  type PpgAnalyzeRequest,
-  type PpgAnalyzeResponse,
-} from "@/features/ppg/ppg.contract";
-
-const ENGINE_TIMEOUT_MS = 10_000;
+  mapPpgGatewayResponse,
+  preparePpgGatewayRequest,
+  ppgGatewayResponseSchema,
+} from "@/features/ppg/server/ppg-gateway";
+import { requestAiGateway } from "@/lib/ai-gateway/client";
+import { AiGatewayError } from "@/lib/ai-gateway/client-core";
 
 export async function analyzePpgWithEngine(
   input: PpgAnalyzeRequest,
 ): Promise<PpgAnalyzeResponse> {
-  const endpoint = process.env.PPG_ENGINE_URL;
-  if (!endpoint) return unavailable(input.requestId, "engine_not_configured", false);
-
-  const headers = new Headers({
-    "Content-Type": "application/json",
-    Accept: "application/json",
-    "X-Request-Id": input.requestId,
-  });
-  const apiKey = process.env.PPG_ENGINE_API_KEY;
-  if (apiKey) headers.set("Authorization", `Bearer ${apiKey}`);
+  const prepared = preparePpgGatewayRequest(input);
+  if (prepared.kind === "local") return prepared.response;
 
   try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(input),
-      cache: "no-store",
-      signal: AbortSignal.timeout(ENGINE_TIMEOUT_MS),
+    const response = await requestAiGateway({
+      path: "/api/v1/biomarkers/ppg/process",
+      body: prepared.body,
+      requestId: input.requestId,
+      responseSchema: ppgGatewayResponseSchema,
+      timeoutMs: 10_000,
     });
-    if (!response.ok) return unavailable(input.requestId, "service_error", response.status >= 500);
-
-    const payload: unknown = await response.json();
-    const parsed = ppgAnalyzeResponseSchema.safeParse(payload);
-    if (!parsed.success || parsed.data.meta.demo) {
-      return unavailable(input.requestId, "invalid_engine_response", false);
-    }
-    return parsed.data;
+    return mapPpgGatewayResponse(input, response);
   } catch (error) {
-    if (error instanceof DOMException && error.name === "TimeoutError") {
+    if (!(error instanceof AiGatewayError)) {
+      return unavailable(input.requestId, "service_error", true);
+    }
+    if (error.kind === "not_configured") {
+      return unavailable(input.requestId, "engine_not_configured", false);
+    }
+    if (error.kind === "timeout") {
       return unavailable(input.requestId, "timeout", true);
     }
-    return unavailable(input.requestId, "service_error", true);
+    if (error.kind === "invalid_response") {
+      return unavailable(input.requestId, "invalid_engine_response", false);
+    }
+    return unavailable(input.requestId, "service_error", error.retryable);
   }
 }
 

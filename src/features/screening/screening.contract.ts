@@ -22,6 +22,21 @@ const responseMetaSchema = z.object({
   demo: z.boolean(),
 });
 
+export const gatewayRiskCategorySchema = z.enum([
+  "UNDER_5_PERCENT",
+  "5_TO_UNDER_10_PERCENT",
+  "10_TO_UNDER_20_PERCENT",
+  "20_TO_UNDER_30_PERCENT",
+  "30_PERCENT_AND_ABOVE",
+]);
+
+export const gatewayRiskLevelSchema = z.enum([
+  "LOW_RISK",
+  "MODERATE_RISK",
+  "HIGH_RISK",
+  "VERY_HIGH_RISK",
+]);
+
 export const screeningResultSchema = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("emergency"),
@@ -54,6 +69,7 @@ export const screeningResultSchema = z.discriminatedUnion("status", [
       "timeout",
       "invalid_engine_response",
       "service_error",
+      "consent_required",
     ]),
     retryable: z.boolean(),
     message: z.string().min(1),
@@ -65,6 +81,17 @@ export const screeningResultSchema = z.discriminatedUnion("status", [
     categoryLabel: z.string().min(1),
     completedAt: z.string().datetime(),
     source: sourceSchema,
+    engineFacts: z
+      .object({
+        evaluationId: z.string().uuid(),
+        resolvedBmi: z.number().finite().positive(),
+        riskCategory: gatewayRiskCategorySchema,
+        riskLevel: gatewayRiskLevelSchema,
+        chartTypeUsed: z.enum(["SEAR_NON_LAB", "SEAR_LAB"]),
+        isHypertensiveCrisis: z.boolean(),
+        clinicalDisclaimer: z.string().min(10),
+      })
+      .strict(),
     recordId: z.string().uuid().optional(),
     limitations: z.array(z.string().min(1)).min(1),
   }),

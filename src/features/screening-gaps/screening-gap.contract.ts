@@ -79,6 +79,7 @@ export const screeningGapsResponseSchema = z.object({
         "timeout",
         "invalid_response",
         "service_error",
+        "consent_required",
       ]),
       retryable: z.boolean(),
       message: z.string().min(1),

@@ -30,6 +30,8 @@ type DemoScenario = "approved" | "unavailable" | "emergency";
 const demoSessionId = "8c432f50-bb5b-4d78-84f3-faa7f6c8bc27";
 const demoRecordedAt = "2026-10-15T08:30:00.000Z";
 
+type InsightSource = { screeningSessionId: string; recordedAt: string };
+
 const fallbackSections: InsightSections = {
   summary: "Penjelasan AI belum dibuat. Fakta sumber tetap tersedia dan tidak diubah.",
   recordedFactors: ["Tinjau faktor yang tercatat langsung dari hasil skrining."],
@@ -38,13 +40,14 @@ const fallbackSections: InsightSections = {
   limitations: ["Template umum ini bukan penjelasan personal, diagnosis, atau rekomendasi pengobatan."],
 };
 
-export function HealthInsightView() {
+export function HealthInsightView({ source }: { source: InsightSource | null }) {
   const [scenario, setScenario] = useState<DemoScenario>("approved");
   const [consent, setConsent] = useState(false);
   const [cooldown, setCooldown] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const isDemo = process.env.NEXT_PUBLIC_NEUROCARE_DEMO_MODE === "true";
   const emergency = scenario === "emergency";
+  const activeSource = isDemo ? { screeningSessionId: demoSessionId, recordedAt: demoRecordedAt } : source;
 
   const mutation = useMutation({
     mutationFn: async (input: HealthInsightRequest) => {
@@ -91,7 +94,8 @@ export function HealthInsightView() {
 
   function generateInsight() {
     if (!consent || emergency || mutation.isPending) return;
-    mutation.mutate(createRequest(scenario));
+    if (!activeSource) return;
+    mutation.mutate(createRequest(scenario, activeSource));
   }
 
   const displayedSections = getDisplayedSections(consent, mutation.data);
@@ -126,7 +130,9 @@ export function HealthInsightView() {
               <span className="inline-flex items-center gap-2 rounded-full bg-neuro-blue px-3 py-2 text-xs font-semibold text-neuro-slate"><Sparkles className="size-3.5" />AI tidak mengubah fakta</span>
             </div>
 
-            <SourceFacts />
+            <SourceFacts source={activeSource} demo={isDemo} />
+
+            {!activeSource ? <div className="mt-5 rounded-2xl border border-[#ead39f] bg-[#fff9ec] p-4 text-[#79520f]" role="status"><p className="text-sm font-semibold">Belum ada hasil skrining yang dapat digunakan</p><p className="mt-1 text-xs leading-5 opacity-75">Selesaikan skrining yang memenuhi syarat, lalu buka insight dari riwayat skrining.</p><Link href="/app/screening/history" className="mt-3 inline-flex text-xs font-semibold underline underline-offset-4">Buka riwayat skrining</Link></div> : null}
 
             {!consent ? <TemplateNotice /> : null}
             {mutation.isPending ? <LoadingState /> : null}
@@ -138,16 +144,17 @@ export function HealthInsightView() {
               <InsightSectionsView
                 sections={displayedSections}
                 generatedBy={mutation.data?.data.status === "ok" ? "ai" : "template"}
+                demo={mutation.data?.meta.demo ?? false}
               />
             ) : null}
 
             <div className="mt-7 border-t border-black/5 pt-6">
               <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-neuro-slate/10 p-4">
                 <input type="checkbox" checked={consent} onChange={(event) => { setConsent(event.target.checked); mutation.reset(); }} className="mt-1 size-4 accent-[#243746]" />
-                <span><span className="block text-sm font-semibold text-neuro-slate">Saya setuju data skrining minimum ini dikirim untuk membuat penjelasan AI.</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Nama dan kontak tidak disertakan. Persetujuan tidak mencakup penyimpanan insight. Teks privasi final masih memerlukan persetujuan tim.</span></span>
+                <span><span className="block text-sm font-semibold text-neuro-slate">Saya mengonfirmasi pengiriman data skrining minimum untuk membuat penjelasan AI.</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Nama dan kontak tidak disertakan. Persetujuan AI eksternal harus aktif di Profil; insight tervalidasi disimpan pada akun dan dapat muncul di timeline kesehatan.</span></span>
               </label>
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button type="button" onClick={generateInsight} disabled={!consent || mutation.isPending || cooldown} className="focus-ring inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-neuro-slate px-6 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45">{mutation.isPending ? <LoaderCircle className="size-4 animate-spin" /> : mutation.data || mutation.isError ? <RefreshCw className="size-4" /> : <Sparkles className="size-4" />}{mutation.isPending ? "Membuat insight…" : mutation.isError ? "Coba lagi" : mutation.data ? "Buat ulang insight" : "Buat insight"}</button>
+                <button type="button" onClick={generateInsight} disabled={!activeSource || !consent || mutation.isPending || cooldown} className="focus-ring inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-neuro-slate px-6 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45">{mutation.isPending ? <LoaderCircle className="size-4 animate-spin" /> : mutation.data || mutation.isError ? <RefreshCw className="size-4" /> : <Sparkles className="size-4" />}{mutation.isPending ? "Membuat insight…" : mutation.isError ? "Coba lagi" : mutation.data ? "Buat ulang insight" : "Buat insight"}</button>
                 {cooldown ? <p className="text-xs text-muted-foreground" role="status">Tunggu sebentar sebelum meminta ulang untuk membatasi permintaan.</p> : null}
               </div>
             </div>
@@ -164,14 +171,14 @@ export function HealthInsightView() {
   );
 }
 
-function createRequest(scenario: DemoScenario): HealthInsightRequest {
+function createRequest(scenario: DemoScenario, source: InsightSource): HealthInsightRequest {
   return {
     requestId: crypto.randomUUID(),
     schemaVersion: HEALTH_INSIGHT_SCHEMA_VERSION,
     consentToExternalAi: true,
     source: {
-      screeningSessionId: demoSessionId,
-      recordedAt: demoRecordedAt,
+      screeningSessionId: source.screeningSessionId,
+      recordedAt: source.recordedAt,
       safetyStatus: scenario === "emergency" ? "emergency" : "clear",
       screeningStatus: "insufficient_data",
       riskScope: null,
@@ -190,18 +197,21 @@ function getDisplayedSections(consent: boolean, response?: HealthInsightResponse
   return fallbackSections;
 }
 
-function SourceFacts() {
-  return <div className="mt-6 rounded-3xl bg-neuro-cream p-5"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-semibold text-neuro-slate">Fakta deterministik sumber</h3><span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-neuro-slate">Tidak diubah AI</span></div><dl className="mt-4 grid gap-3 text-sm"><div className="flex gap-3"><ClipboardCheck className="mt-0.5 size-4 shrink-0 text-neuro-slate" /><div><dt className="font-semibold text-neuro-slate">Status skrining</dt><dd className="mt-1 text-muted-foreground">Data belum cukup; tidak ada kategori atau angka risiko yang dibuat.</dd></div></div><div className="flex gap-3"><ListChecks className="mt-0.5 size-4 shrink-0 text-neuro-slate" /><div><dt className="font-semibold text-neuro-slate">Data belum lengkap</dt><dd className="mt-1 text-muted-foreground">Tekanan darah sistolik belum tersedia.</dd></div></div><div className="flex gap-3"><Clock3 className="mt-0.5 size-4 shrink-0 text-neuro-slate" /><div><dt className="font-semibold text-neuro-slate">Sumber dan waktu</dt><dd className="mt-1 text-muted-foreground">Fixture F01/F02 · {formatDate(demoRecordedAt)}</dd></div></div></dl></div>;
+function SourceFacts({ source, demo }: { source: InsightSource | null; demo: boolean }) {
+  return <div className="mt-6 rounded-3xl bg-neuro-cream p-5"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-semibold text-neuro-slate">Sumber insight</h3><span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-neuro-slate">Divalidasi ulang di server</span></div><dl className="mt-4 grid gap-3 text-sm"><div className="flex gap-3"><ClipboardCheck className="mt-0.5 size-4 shrink-0 text-neuro-slate" /><div><dt className="font-semibold text-neuro-slate">Status sumber</dt><dd className="mt-1 text-muted-foreground">{source ? "Hasil skrining tersimpan dipilih sebagai sumber." : "Belum ada hasil skrining yang memenuhi syarat."}</dd></div></div><div className="flex gap-3"><ListChecks className="mt-0.5 size-4 shrink-0 text-neuro-slate" /><div><dt className="font-semibold text-neuro-slate">Data yang dikirim</dt><dd className="mt-1 text-muted-foreground">Server memuat ulang fakta dan gap milik akun; fakta dari browser tidak dipercaya sebagai sumber.</dd></div></div><div className="flex gap-3"><Clock3 className="mt-0.5 size-4 shrink-0 text-neuro-slate" /><div><dt className="font-semibold text-neuro-slate">Sumber dan waktu</dt><dd className="mt-1 text-muted-foreground">{source ? `${demo ? "Fixture sintetis" : "Skrining tersimpan"} · ${formatDate(source.recordedAt)}` : "Belum tersedia"}</dd></div></div></dl></div>;
 }
 
-function InsightSectionsView({ sections, generatedBy }: { sections: InsightSections; generatedBy: "ai" | "template" }) {
+function InsightSectionsView({ sections, generatedBy, demo }: { sections: InsightSections; generatedBy: "ai" | "template"; demo: boolean }) {
   const groups: Array<[string, string[]]> = [
     ["Faktor yang tercatat", sections.recordedFactors],
     ["Data yang belum lengkap", sections.incompleteData],
     ["Tindakan lanjutan umum", sections.generalFollowUp],
     ["Keterbatasan", sections.limitations],
   ];
-  return <div className="mt-6" aria-live="polite"><div className={`rounded-2xl p-4 ${generatedBy === "ai" ? "bg-neuro-green" : "bg-neuro-blue"}`}><p className="text-xs font-semibold uppercase tracking-wider text-neuro-slate/60">{generatedBy === "ai" ? "Ditulis AI · data demo (simulasi)" : "Template umum · bukan AI personal"}</p><p className="mt-2 text-sm leading-6 text-neuro-slate">{sections.summary}</p></div><div className="mt-5 grid gap-4 sm:grid-cols-2">{groups.map(([title, items]) => <section key={title} className="rounded-2xl border border-black/5 p-4"><h3 className="text-sm font-semibold text-neuro-slate">{title}</h3><ul className="mt-3 list-inside list-disc space-y-2 text-sm leading-6 text-muted-foreground">{items.map((item) => <li key={item}>{item}</li>)}</ul></section>)}</div></div>;
+  const label = generatedBy === "ai"
+    ? demo ? "Ditulis AI · data demo (simulasi)" : "Ditulis AI · hasil tersimpan"
+    : "Template umum · bukan AI personal";
+  return <div className="mt-6" aria-live="polite"><div className={`rounded-2xl p-4 ${generatedBy === "ai" ? "bg-neuro-green" : "bg-neuro-blue"}`}><p className="text-xs font-semibold uppercase tracking-wider text-neuro-slate/60">{label}</p><p className="mt-2 text-sm leading-6 text-neuro-slate">{sections.summary}</p></div><div className="mt-5 grid gap-4 sm:grid-cols-2">{groups.map(([title, items]) => <section key={title} className="rounded-2xl border border-black/5 p-4"><h3 className="text-sm font-semibold text-neuro-slate">{title}</h3><ul className="mt-3 list-inside list-disc space-y-2 text-sm leading-6 text-muted-foreground">{items.map((item) => <li key={item}>{item}</li>)}</ul></section>)}</div></div>;
 }
 
 function TemplateNotice() { return <div className="mt-5 rounded-2xl border border-[#ead39f] bg-[#fff9ec] p-4 text-[#79520f]"><p className="text-sm font-semibold">Belum ada persetujuan pengiriman</p><p className="mt-1 text-xs leading-5 opacity-75">Tidak ada panggilan AI. Template umum di bawah tidak menggunakan atau menafsirkan data personal.</p></div>; }

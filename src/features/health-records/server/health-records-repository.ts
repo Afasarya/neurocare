@@ -15,6 +15,7 @@ type DbClient = SupabaseClient<Database>;
 type MeasurementRow = Database["public"]["Tables"]["health_measurements"]["Row"];
 type MeasurementInsert = Database["public"]["Tables"]["health_measurements"]["Insert"];
 type ActionItemRow = Database["public"]["Tables"]["action_items"]["Row"];
+type InsightRow = Database["public"]["Tables"]["insight_records"]["Row"];
 
 export class HealthRecordsStorageError extends Error {
   constructor(
@@ -94,7 +95,7 @@ export async function updateActionItem(
 }
 
 export async function listTimelineEvents(supabase: DbClient, userId: string) {
-  const [measurementsResult, actionsResult] = await Promise.all([
+  const [measurementsResult, actionsResult, insightsResult] = await Promise.all([
     supabase
       .from("health_measurements")
       .select("id, measurement_type, value, secondary_value, unit, source, measured_at")
@@ -107,16 +108,24 @@ export async function listTimelineEvents(supabase: DbClient, userId: string) {
       .eq("user_id", userId)
       .order("updated_at", { ascending: false })
       .limit(100),
+    supabase
+      .from("insight_records")
+      .select("id, screening_session_id, generated_by, model_version, generated_at")
+      .eq("user_id", userId)
+      .order("generated_at", { ascending: false })
+      .limit(100),
   ]);
 
   if (measurementsResult.error) throw storageError(measurementsResult.error.code);
   if (actionsResult.error) throw storageError(actionsResult.error.code);
+  if (insightsResult.error) throw storageError(insightsResult.error.code);
 
   const measurementEvents = (measurementsResult.data ?? []).map((row) =>
     measurementToTimelineEvent(mapMeasurement(row as MeasurementRow)),
   );
   const actionEvents = (actionsResult.data ?? []).map((row) => actionToTimelineEvent(row));
-  return sortTimelineEvents([...measurementEvents, ...actionEvents]);
+  const insightEvents = (insightsResult.data ?? []).map((row) => insightToTimelineEvent(row as InsightRow));
+  return sortTimelineEvents([...measurementEvents, ...actionEvents, ...insightEvents]);
 }
 
 export function mapMeasurement(row: Pick<MeasurementRow, "id" | "measurement_type" | "value" | "secondary_value" | "unit" | "source" | "measured_at">): HealthMeasurement {
@@ -181,6 +190,25 @@ function actionToTimelineEvent(row: { id: string; title: string; description: st
     description: row.status === "completed" ? "Rencana ditandai selesai." : row.description,
     details: [{ label: "Status", value: row.status === "completed" ? "Selesai" : "Belum dikerjakan", unit: null }],
     source: { label: row.source_label, provenance: "database", referenceId: row.id },
+  };
+}
+
+function insightToTimelineEvent(row: Pick<InsightRow, "id" | "screening_session_id" | "generated_by" | "model_version" | "generated_at">): TimelineEvent {
+  return {
+    id: `insight:${row.id}`,
+    occurredAt: row.generated_at,
+    kind: "screening",
+    pathway: "neuroprevent",
+    title: "Insight kesehatan tersimpan",
+    description: row.generated_by === "ai"
+      ? "Penjelasan berbantuan AI tersimpan dan tetap terhubung ke hasil skrining sumber."
+      : "Template aman dari AI Gateway tersimpan dan terhubung ke hasil skrining sumber.",
+    details: [{
+      label: "Sumber",
+      value: row.generated_by === "ai" ? (row.model_version ?? "AI Gateway") : "Template Gateway",
+      unit: null,
+    }],
+    source: { label: "AI-Neurocare Gateway", provenance: "verified_engine", referenceId: row.screening_session_id },
   };
 }
 

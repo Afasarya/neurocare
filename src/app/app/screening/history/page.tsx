@@ -191,7 +191,7 @@ export default async function ScreeningHistoryPage() {
                       <ChevronRight className="size-3.5" />
                     </Link>
                     <Link
-                      href="/app/insights"
+                      href={`/app/insights?session=${session.id}`}
                       className="focus-ring inline-flex items-center gap-1 rounded-full bg-neuro-cream px-3 py-1.5 font-semibold text-neuro-slate hover:bg-black/5"
                     >
                       Buka Insight AI

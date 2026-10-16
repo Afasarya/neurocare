@@ -1,6 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
-  HEALTH_INSIGHT_SCHEMA_VERSION,
   healthInsightRequestSchema,
   type HealthInsightRequest,
   type HealthInsightResponse,
@@ -13,6 +12,8 @@ import {
 import { consumeInsightQuota } from "@/features/insights/server/rate-limit";
 import { resolveHealthInsight } from "@/features/insights/server/insight-service";
 import { hasActiveExternalAiConsent } from "@/features/insights/server/external-ai-consent";
+import { loadHealthInsightGatewayRequest } from "@/features/insights/server/health-insight-source";
+import { persistHealthInsight } from "@/features/insights/server/insight-persistence";
 
 const MAX_BODY_BYTES = 24 * 1024;
 const responseHeaders = {
@@ -75,26 +76,48 @@ export async function POST(request: Request) {
   };
 
   const result = await resolveHealthInsight(consentedInput, async (input) => {
-    if (process.env.AI_HEALTH_INSIGHT_SCHEMA_VERSION !== HEALTH_INSIGHT_SCHEMA_VERSION) {
-      return contractNotApproved(input);
-    }
     const quota = consumeInsightQuota(data.user.id);
     if (!quota.allowed) return rateLimited(input, quota.retryAfterSeconds);
-    return generateHealthInsight(input);
+    const gatewayRequest = await loadHealthInsightGatewayRequest(
+      supabase,
+      data.user.id,
+      input.source.screeningSessionId,
+    );
+    if (!gatewayRequest) return sourceNotAvailable(input);
+    return generateHealthInsight(input, gatewayRequest);
   });
+  const persistence = await persistHealthInsight(data.user.id, result);
+  if (persistence === "not_configured") return persistenceUnavailable(consentedInput, "persistence_not_configured", false);
+  if (persistence === "error") return persistenceUnavailable(consentedInput, "persistence_error", true);
   return Response.json(result, { status: 200, headers: responseHeaders });
 }
 
-function contractNotApproved(input: HealthInsightRequest): HealthInsightResponse {
+function sourceNotAvailable(input: HealthInsightRequest): HealthInsightResponse {
   return {
     data: {
       status: "unavailable",
-      reason: "contract_not_approved",
+      reason: "source_not_available",
       retryable: false,
-      message: "Kontrak insight belum disetujui. Data tidak diteruskan ke penyedia AI.",
+      message: "Sumber skrining tervalidasi tidak ditemukan atau belum lengkap. Tidak ada data yang dikirim ke AI.",
     },
     meta: { requestId: input.requestId, generatedAt: new Date().toISOString(), demo: false },
   };
+}
+
+function persistenceUnavailable(
+  input: HealthInsightRequest,
+  reason: "persistence_not_configured" | "persistence_error",
+  retryable: boolean,
+) {
+  return Response.json({
+    data: {
+      status: "unavailable",
+      reason,
+      retryable,
+      message: "Insight belum dapat disimpan. Tidak ada konfirmasi penyimpanan yang dibuat.",
+    },
+    meta: { requestId: input.requestId, generatedAt: new Date().toISOString(), demo: false },
+  } satisfies HealthInsightResponse, { status: 503, headers: responseHeaders });
 }
 
 function rateLimited(input: HealthInsightRequest, retryAfterSeconds: number): HealthInsightResponse {

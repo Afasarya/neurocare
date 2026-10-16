@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { ppgAnalyzeRequestSchema } from "@/features/ppg/ppg.contract";
 import { createPpgFixture, type PpgDemoScenario } from "@/features/ppg/server/ppg-fixture";
 import { analyzePpgWithEngine } from "@/features/ppg/server/ppg-engine";
+import { hasActiveConsent } from "@/features/insights/server/external-ai-consent";
 
 const MAX_BODY_BYTES = 768 * 1024;
 const responseHeaders = {
@@ -52,6 +53,19 @@ export async function POST(request: Request) {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) {
     return apiError(401, parsed.data.requestId, "UNAUTHENTICATED", "Silakan masuk sebelum analisis.");
+  }
+
+  const [hasCameraConsent, hasExternalAiConsent] = await Promise.all([
+    hasActiveConsent(supabase, data.user.id, "camera"),
+    hasActiveConsent(supabase, data.user.id, "external_ai"),
+  ]);
+  if (!hasCameraConsent || !hasExternalAiConsent) {
+    return apiError(
+      403,
+      parsed.data.requestId,
+      "CONSENT_REQUIRED",
+      "Persetujuan kamera dan AI eksternal harus aktif sebelum sinyal dikirim.",
+    );
   }
 
   const approvedContract = process.env.PPG_CAPTURE_CONTRACT_VERSION;
