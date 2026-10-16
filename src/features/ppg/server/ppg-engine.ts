@@ -36,7 +36,7 @@ export async function analyzePpgWithEngine(
     if (error.kind === "invalid_response") {
       return unavailable(input.requestId, "invalid_engine_response", false);
     }
-    return unavailable(input.requestId, "service_error", error.retryable);
+    return unavailable(input.requestId, "service_error", error.retryable, `${error.kind}${error.status ? `-${error.status}` : ""}`);
   }
 }
 
@@ -48,16 +48,18 @@ function unavailable(
     | "invalid_engine_response"
     | "service_error",
   retryable: boolean,
+  detail?: string,
 ): PpgAnalyzeResponse {
   return {
     data: {
       status: "unavailable",
       reason,
       retryable,
-      message:
+      message: (
         reason === "timeout"
           ? "Layanan analisis belum merespons. Tidak ada BPM yang dibuat."
-          : "Layanan analisis belum tersedia. Tidak ada BPM yang dibuat.",
+          : "Layanan analisis belum tersedia. Tidak ada BPM yang dibuat."
+      ) + (detail ? ` [kode: ${detail}]` : ""),
     },
     meta: {
       requestId,

@@ -15,8 +15,8 @@ export function requestAiGateway<TSchema extends z.ZodType>(input: {
 }) {
   return requestAiGatewayWithConfig(
     {
-      baseUrl: process.env.AI_GATEWAY_BASE_URL ?? "",
-      apiKey: process.env.AI_GATEWAY_API_KEY ?? "",
+      baseUrl: (process.env.AI_GATEWAY_BASE_URL ?? "").trim(),
+      apiKey: (process.env.AI_GATEWAY_API_KEY ?? "").trim(),
       timeoutMs: input.timeoutMs,
     },
     input,
