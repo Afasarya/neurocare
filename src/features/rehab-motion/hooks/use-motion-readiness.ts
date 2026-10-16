@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { stopMotionStream } from "@/features/rehab-motion/browser/media-stream";
+import {
+  classifyMotionCameraError,
+  getMotionCameraConstraints,
+  stopMotionStream,
+} from "@/features/rehab-motion/browser/media-stream";
 import { loadPoseLandmarker, type PoseLandmarkerRuntime } from "@/features/rehab-motion/browser/pose-landmarker";
 import type { MotionTrackerState } from "@/features/rehab-motion/motion.contract";
 
@@ -14,6 +18,7 @@ export function useMotionReadiness() {
   const operationIdRef = useRef(0);
   const [state, setState] = useState<ReadinessState>("idle");
   const [message, setMessage] = useState("Model dan kamera belum dimuat.");
+  const [cameraActive, setCameraActive] = useState(false);
 
   const release = useCallback(() => {
     operationIdRef.current += 1;
@@ -22,13 +27,14 @@ export function useMotionReadiness() {
     runtimeRef.current?.close();
     runtimeRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
+    setCameraActive(false);
   }, []);
 
   const prepare = useCallback(async () => {
     release();
     const operationId = operationIdRef.current;
-    setState("loading_model");
-    setMessage("Memuat model pose di perangkat…");
+    setState("requesting_camera");
+    setMessage("Menunggu izin kamera dari perangkat…");
 
     if (!globalThis.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setState("unsupported");
@@ -36,29 +42,9 @@ export function useMotionReadiness() {
       return;
     }
 
-    const wasmRoot = process.env.NEXT_PUBLIC_MEDIAPIPE_WASM_PATH ?? "";
-    const modelAssetPath = process.env.NEXT_PUBLIC_POSE_LANDMARKER_MODEL_PATH ?? "";
-    if (!wasmRoot || !modelAssetPath) {
-      setState("error");
-      setMessage("Asset model yang telah ditinjau belum dikonfigurasi. Kamera tidak dibuka.");
-      return;
-    }
-
-    let pendingRuntime: PoseLandmarkerRuntime | null = null;
     let pendingStream: MediaStream | null = null;
     try {
-      pendingRuntime = await loadPoseLandmarker({ wasmRoot, modelAssetPath });
-      if (operationId !== operationIdRef.current) {
-        pendingRuntime.close();
-        return;
-      }
-      runtimeRef.current = pendingRuntime;
-      pendingRuntime = null;
-
-      pendingStream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
+      pendingStream = await navigator.mediaDevices.getUserMedia(getMotionCameraConstraints());
       if (operationId !== operationIdRef.current) {
         stopMotionStream(pendingStream);
         return;
@@ -69,23 +55,50 @@ export function useMotionReadiness() {
       videoRef.current.srcObject = streamRef.current;
       await videoRef.current.play();
       if (operationId !== operationIdRef.current) return;
-      setState("ready");
-      setMessage("Model dan kamera siap. Pelacakan tetap dikunci sampai kontrak latihan disetujui.");
+      setCameraActive(true);
     } catch (error) {
-      pendingRuntime?.close();
       stopMotionStream(pendingStream);
       if (operationId !== operationIdRef.current) return;
       release();
-      if (error instanceof DOMException && (error.name === "NotAllowedError" || error.name === "SecurityError")) {
+      const errorKind = classifyMotionCameraError(error);
+      if (errorKind === "denied") {
         setState("camera_denied");
         setMessage("Izin kamera ditolak. Ubah izin browser lalu coba lagi.");
-      } else if (error instanceof DOMException && (error.name === "NotFoundError" || error.name === "OverconstrainedError")) {
+      } else if (errorKind === "unavailable") {
         setState("unsupported");
-        setMessage("Kamera yang sesuai tidak ditemukan pada perangkat ini.");
+        setMessage("Kamera tidak ditemukan atau sedang digunakan aplikasi lain.");
       } else {
         setState("error");
-        setMessage("Model atau kamera tidak dapat dimuat. Tidak ada pelacakan yang dimulai.");
+        setMessage("Pratinjau kamera tidak dapat dimulai. Tidak ada pelacakan yang dijalankan.");
       }
+      return;
+    }
+
+    const wasmRoot = process.env.NEXT_PUBLIC_MEDIAPIPE_WASM_PATH ?? "";
+    const modelAssetPath = process.env.NEXT_PUBLIC_POSE_LANDMARKER_MODEL_PATH ?? "";
+    if (!wasmRoot || !modelAssetPath) {
+      setState("camera_only");
+      setMessage("Kamera aktif. Model pose belum dikonfigurasi, sehingga tidak ada pelacakan atau hitungan gerak.");
+      return;
+    }
+
+    setState("loading_model");
+    setMessage("Kamera aktif. Model pose sedang dimuat di perangkat…");
+    let pendingRuntime: PoseLandmarkerRuntime | null = null;
+    try {
+      pendingRuntime = await loadPoseLandmarker({ wasmRoot, modelAssetPath });
+      if (operationId !== operationIdRef.current) {
+        pendingRuntime.close();
+        return;
+      }
+      runtimeRef.current = pendingRuntime;
+      setState("ready");
+      setMessage("Model dan kamera siap. Pelacakan tetap dikunci sampai kontrak latihan disetujui.");
+    } catch {
+      pendingRuntime?.close();
+      if (operationId !== operationIdRef.current) return;
+      setState("camera_only");
+      setMessage("Kamera aktif, tetapi model pose tidak dapat dimuat. Tidak ada pelacakan atau hitungan gerak.");
     }
   }, [release]);
 
@@ -116,5 +129,5 @@ export function useMotionReadiness() {
     };
   }, [release]);
 
-  return { videoRef, state, message, prepare, stop, emergencyStop };
+  return { videoRef, state, message, cameraActive, prepare, stop, emergencyStop };
 }

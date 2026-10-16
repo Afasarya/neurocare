@@ -27,8 +27,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <AppQueryProvider>
-      <div className="min-h-screen bg-[#f4f6f2]">
-        <header className="border-b border-black/5 bg-white sticky top-0 z-30">
+      <div className="min-h-screen overflow-x-clip bg-[#f4f6f2]">
+        <header className="sticky top-0 z-30 border-b border-black/5 bg-white pt-[env(safe-area-inset-top)]">
           <div className="page-shell flex min-h-16 items-center justify-between gap-4 py-2.5">
             <Link href="/" className="focus-ring flex items-center gap-2.5 rounded-full font-semibold text-neuro-slate">
               <Image src="/icons/neurocare-mark.svg" width={32} height={32} alt="" className="rounded-xl" />
@@ -63,7 +63,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        <div className="page-shell grid gap-6 py-6 lg:grid-cols-[15rem_1fr] lg:py-8">
+        <div className="page-shell grid min-w-0 gap-6 py-4 sm:py-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:py-8">
           <aside className="hidden lg:block">
             <AppSidebarNav
               showCommunication={Boolean(communicationRehabNavigation)}
@@ -72,11 +72,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             />
           </aside>
 
-          <div className="min-w-0 pb-16 lg:pb-0">{children}</div>
+          <div className="min-w-0 max-w-full pb-28 lg:pb-0">{children}</div>
         </div>
 
-        {/* Mobile bottom nav */}
-        <AppMobileNav />
+        <AppMobileNav
+          showCommunication={Boolean(communicationRehabNavigation)}
+          showCognitive={Boolean(cognitiveActivityNavigation)}
+          showCaregiver={Boolean(caregiverNavigation)}
+        />
       </div>
     </AppQueryProvider>
   );

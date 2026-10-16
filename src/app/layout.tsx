@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -52,6 +52,13 @@ export const metadata: Metadata = {
       "PWA edukasi dan monitoring untuk perjalanan NeuroPrevent dan NeuroRecovery.",
     images: ["/images/landing/neurocare-telehealth-hero.jpg"],
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#243746",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

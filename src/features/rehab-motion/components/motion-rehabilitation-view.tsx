@@ -24,7 +24,9 @@ type DisplayState = "idle" | MotionTrackerState;
 
 const stateCopy: Record<DisplayState, { label: string; message: string; tone: string }> = {
   idle: { label: "Belum dimulai", message: "Baca pemeriksaan keselamatan dan beri persetujuan sebelum menyalakan kamera.", tone: "bg-muted text-neuro-slate" },
-  loading_model: { label: "Memuat model", message: "Model pose sedang dimuat di perangkat. Kamera belum digunakan untuk pelacakan.", tone: "bg-neuro-blue text-neuro-slate" },
+  requesting_camera: { label: "Menunggu izin kamera", message: "Setujui permintaan kamera dari perangkat untuk menampilkan pratinjau.", tone: "bg-neuro-blue text-neuro-slate" },
+  loading_model: { label: "Memuat model", message: "Kamera aktif dan model pose sedang dimuat di perangkat.", tone: "bg-neuro-blue text-neuro-slate" },
+  camera_only: { label: "Kamera aktif tanpa pelacakan", message: "Pratinjau tersedia, tetapi model pose belum siap. Tidak ada repetisi atau durasi yang dihitung.", tone: "bg-[#fff9ec] text-[#79520f]" },
   camera_denied: { label: "Izin kamera ditolak", message: "Ubah izin kamera pada browser, lalu coba lagi. Anda tetap dapat kembali tanpa kamera.", tone: "bg-[#fff9ec] text-[#79520f]" },
   unsupported: { label: "Perangkat tidak didukung", message: "Kamera atau lingkungan aman yang diperlukan tidak tersedia pada perangkat ini.", tone: "bg-[#fff9ec] text-[#79520f]" },
   ready: { label: "Perangkat siap", message: "Kamera dan model siap. Aktivitas belum dapat dimulai sampai kontrak latihan disetujui.", tone: "bg-neuro-green text-neuro-slate" },
@@ -37,15 +39,14 @@ const stateCopy: Record<DisplayState, { label: string; message: string; tone: st
 };
 
 export function MotionRehabilitationView() {
-  const { videoRef, state, message, prepare, stop, emergencyStop: stopForEmergency } = useMotionReadiness();
+  const { videoRef, state, message, cameraActive, prepare, stop, emergencyStop: stopForEmergency } = useMotionReadiness();
   const [safetyAnswer, setSafetyAnswer] = useState<"clear" | "emergency" | null>(null);
   const [consent, setConsent] = useState(false);
   const [simulatedState, setSimulatedState] = useState<DisplayState | null>(null);
   const isDevelopment = process.env.NODE_ENV !== "production";
   const displayState = simulatedState ?? state;
   const copy = stateCopy[displayState];
-  const canPrepare = safetyAnswer === "clear" && consent && state !== "loading_model";
-  const cameraActive = state === "ready";
+  const canPrepare = safetyAnswer === "clear" && consent && state !== "requesting_camera" && state !== "loading_model";
 
   function emergencyStop() {
     setSimulatedState(null);
@@ -90,18 +91,18 @@ export function MotionRehabilitationView() {
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)]">
         <section className="overflow-hidden rounded-[2rem] border border-black/5 bg-white">
-          <div className="relative aspect-video min-h-64 bg-neuro-slate">
-            <video ref={videoRef} muted playsInline className={`h-full w-full object-cover ${cameraActive ? "block" : "hidden"}`} aria-label="Pratinjau kamera gerak" />
+          <div className="relative aspect-video min-h-52 bg-neuro-slate sm:min-h-64">
+            <video ref={videoRef} muted playsInline className={`block h-full w-full object-cover transition-opacity ${cameraActive ? "opacity-100" : "opacity-0"}`} aria-label="Pratinjau kamera gerak" />
             {!cameraActive ? <div className="absolute inset-0 grid place-items-center p-6 text-center text-white"><div><CameraOff className="mx-auto size-10 opacity-70" /><p className="mt-4 font-semibold">Kamera tidak aktif</p><p className="mt-2 max-w-md text-sm leading-6 text-white/70">Tidak ada video atau frame yang direkam maupun disimpan.</p></div></div> : null}
             {cameraActive ? <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-black/65 px-3 py-2 text-xs font-semibold text-white"><span className="size-2 rounded-full bg-[#9ed46f]" />Kamera aktif · diproses di perangkat</div> : null}
           </div>
 
           <div className="p-5 sm:p-7">
             <div className={`rounded-2xl p-4 ${copy.tone}`} role="status" aria-live="polite">
-              <div className="flex items-start gap-3">{displayState === "loading_model" ? <LoaderCircle className="mt-0.5 size-5 shrink-0 animate-spin" /> : <Info className="mt-0.5 size-5 shrink-0" />}<div><p className="text-sm font-semibold">{copy.label}{simulatedState ? " · simulasi UI" : ""}</p><p className="mt-1 text-xs leading-5 opacity-80">{simulatedState ? copy.message : message}</p></div></div>
+              <div className="flex items-start gap-3">{displayState === "requesting_camera" || displayState === "loading_model" ? <LoaderCircle className="mt-0.5 size-5 shrink-0 animate-spin" /> : <Info className="mt-0.5 size-5 shrink-0" />}<div><p className="text-sm font-semibold">{copy.label}{simulatedState ? " · simulasi UI" : ""}</p><p className="mt-1 text-xs leading-5 opacity-80">{simulatedState ? copy.message : message}</p></div></div>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <Metric label="Repetisi terdeteksi" value="—" hint="Menunggu algoritme disetujui" />
               <Metric label="Durasi tervalidasi" value="—" hint="Belum ada sesi" />
             </div>
@@ -111,11 +112,11 @@ export function MotionRehabilitationView() {
               <span><span className="block text-sm font-semibold text-neuro-slate">Saya setuju menyalakan kamera untuk uji kesiapan.</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Frame diproses sementara di perangkat dan tidak disimpan. Persetujuan dapat ditarik dengan menghentikan kamera.</span></span>
             </label>
 
-            <div className="mt-5 flex flex-wrap gap-3">
-              <button type="button" onClick={() => { setSimulatedState(null); void prepare(); }} disabled={!canPrepare} className="focus-ring inline-flex min-h-12 items-center gap-2 rounded-full bg-neuro-slate px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"><Camera className="size-4" />Uji model & kamera</button>
-              <button type="button" disabled title="Menunggu exercise set dan algoritme yang disetujui" className="inline-flex min-h-12 items-center gap-2 rounded-full bg-neuro-green px-5 text-sm font-semibold text-neuro-slate opacity-50"><Play className="size-4" />Mulai aktivitas</button>
-              <button type="button" disabled className="inline-flex min-h-12 items-center gap-2 rounded-full border border-black/10 px-5 text-sm font-semibold text-neuro-slate opacity-50"><CirclePause className="size-4" />Jeda</button>
-              <button type="button" onClick={stop} disabled={state !== "ready" && state !== "loading_model"} className="focus-ring inline-flex min-h-12 items-center gap-2 rounded-full border border-black/10 px-5 text-sm font-semibold text-neuro-slate disabled:cursor-not-allowed disabled:opacity-45"><CircleStop className="size-4" />Hentikan kamera</button>
+            <div className="mt-5 grid gap-3 sm:flex sm:flex-wrap">
+              <button type="button" onClick={() => { setSimulatedState(null); void prepare(); }} disabled={!canPrepare} className="focus-ring inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-neuro-slate px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"><Camera className="size-4" />{cameraActive ? "Muat ulang kamera" : "Nyalakan kamera"}</button>
+              <button type="button" disabled title="Menunggu exercise set dan algoritme yang disetujui" className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-neuro-green px-5 text-sm font-semibold text-neuro-slate opacity-50 sm:w-auto"><Play className="size-4" />Mulai aktivitas</button>
+              <button type="button" disabled className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-black/10 px-5 text-sm font-semibold text-neuro-slate opacity-50 sm:w-auto"><CirclePause className="size-4" />Jeda</button>
+              <button type="button" onClick={stop} disabled={!cameraActive && state !== "requesting_camera" && state !== "loading_model"} className="focus-ring inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-black/10 px-5 text-sm font-semibold text-neuro-slate disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto"><CircleStop className="size-4" />Hentikan kamera</button>
             </div>
           </div>
         </section>
@@ -144,7 +145,7 @@ function Metric({ label, value, hint }: { label: string; value: string; hint: st
 }
 
 function StateSimulator({ value, onChange }: { value: DisplayState | null; onChange: (value: DisplayState | null) => void }) {
-  const states: DisplayState[] = ["loading_model", "camera_denied", "unsupported", "ready", "tracking", "low_confidence", "paused", "ended", "error"];
+  const states: DisplayState[] = ["requesting_camera", "loading_model", "camera_only", "camera_denied", "unsupported", "ready", "tracking", "low_confidence", "paused", "ended", "error"];
   return <section className="mt-6 rounded-3xl border border-dashed border-[#caa24e] bg-[#fff9ec] p-4"><p className="font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-[#79520f]">Developer · simulasi state UI saja</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => onChange(null)} className={`focus-ring rounded-full px-3 py-2 text-xs ${value === null ? "bg-neuro-slate text-white" : "bg-white text-neuro-slate"}`}>Live</button>{states.map((state) => <button key={state} type="button" onClick={() => onChange(state)} className={`focus-ring rounded-full px-3 py-2 text-xs ${value === state ? "bg-neuro-slate text-white" : "bg-white text-neuro-slate"}`}>{state}</button>)}</div></section>;
 }
 

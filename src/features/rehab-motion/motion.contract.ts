@@ -3,7 +3,9 @@ import { z } from "zod";
 export const MOTION_SOURCE = "mediapipe_pose" as const;
 
 export const motionTrackerStateSchema = z.enum([
+  "requesting_camera",
   "loading_model",
+  "camera_only",
   "camera_denied",
   "unsupported",
   "ready",

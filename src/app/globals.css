@@ -74,12 +74,17 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 6rem;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  max-width: 100%;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
 }
 
 ::selection {
@@ -89,7 +94,7 @@ body {
 
 @layer utilities {
   .page-shell {
-    width: min(100% - 2rem, 80rem);
+    width: min(calc(100% - 1rem), 80rem);
     margin-inline: auto;
   }
 
@@ -147,6 +152,12 @@ body {
 
   .primary-action:focus-visible {
     box-shadow: 0 0 0 3px rgb(99 128 108 / 0.35);
+  }
+}
+
+@media (min-width: 640px) {
+  .page-shell {
+    width: min(calc(100% - 2rem), 80rem);
   }
 }
 
